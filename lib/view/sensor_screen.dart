@@ -1,11 +1,12 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:smart_farm/res/imagesSF/AppImages.dart';
+import 'package:smart_farm/view/setting_sensor_screen.dart';
 import 'package:smart_farm/widget/bottom_bar.dart';
 import 'package:smart_farm/widget/top_bar.dart';
 import 'dart:math' as math;
-import 'package:intl/intl.dart'; // Thêm package này cho định dạng ngày
+import 'package:intl/intl.dart';
+// import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 class SensorScreen extends StatefulWidget {
   @override
@@ -17,9 +18,10 @@ class _SensorScreenState extends State<SensorScreen>
   late PageController _pageController;
   int _currentPage = 0;
   late AnimationController _animationController;
+  // IO.Socket? socket;
 
-  // Danh sách các khu vườn
-  final List<Map<String, dynamic>> gardens = [
+  // Danh sách các khu vườn (dữ liệu cứng)
+  List<Map<String, dynamic>> gardens = [
     {
       'name': 'Vườn A',
       'weather': 'Nắng',
@@ -69,12 +71,81 @@ class _SensorScreenState extends State<SensorScreen>
       vsync: this,
       duration: Duration(milliseconds: 1500),
     )..repeat();
+
+    // // Khởi tạo kết nối Socket.IO (đã comment vì chưa có server)
+    // _initSocket();
   }
+
+  // void _initSocket() {
+  //   try {
+  //     // Thay bằng URL server thực tế, ví dụ: 'http://192.168.1.100:3000'
+  //     const serverUrl = 'http://localhost:3000'; // Thay bằng URL thực tế
+  //     socket = IO.io(serverUrl, <String, dynamic>{
+  //       'transports': ['websocket'],
+  //       'autoConnect': false,
+  //     });
+
+  //     socket!.connect();
+
+  //     socket!.onConnect((_) {
+  //       print('Kết nối thành công với server Socket.IO');
+  //     });
+
+  //     // Lắng nghe dữ liệu cảm biến mới
+  //     socket!.on('sensorData', (data) {
+  //       setState(() {
+  //         final gardenIndex = gardens.indexWhere((g) => g['name'] == data['gardenName']);
+  //         if (gardenIndex != -1) {
+  //           gardens[gardenIndex] = {
+  //             ...gardens[gardenIndex],
+  //             'temperature': data['temperature'] ?? gardens[gardenIndex]['temperature'],
+  //             'wind': data['wind'] ?? gardens[gardenIndex]['wind'],
+  //             'humidity': data['humidity'] ?? gardens[gardenIndex]['humidity'],
+  //             'light': data['light'] ?? gardens[gardenIndex]['light'],
+  //             'soilMoisture': data['soilMoisture'] ?? gardens[gardenIndex]['soilMoisture'],
+  //             'weather': data['weather'] ?? gardens[gardenIndex]['weather'],
+  //             'historyTemp': [
+  //               ...gardens[gardenIndex]['historyTemp'].sublist(1),
+  //               data['temperature'] ?? gardens[gardenIndex]['temperature']
+  //             ],
+  //             'historyHumidity': [
+  //               ...gardens[gardenIndex]['historyHumidity'].sublist(1),
+  //               data['humidity'] ?? gardens[gardenIndex]['humidity']
+  //             ],
+  //           };
+  //         }
+  //       });
+  //     });
+
+  //     socket!.onDisconnect((_) {
+  //       print('Ngắt kết nối với server Socket.IO');
+  //     });
+
+  //     socket!.onError((error) {
+  //       print('Lỗi Socket.IO: $error');
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text('Lỗi kết nối server cảm biến'),
+  //           backgroundColor: Colors.red,
+  //         ),
+  //       );
+  //     });
+  //   } catch (e) {
+  //     print('Không thể khởi tạo Socket.IO: $e');
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text('Không thể kết nối đến server cảm biến'),
+  //         backgroundColor: Colors.red,
+  //       ),
+  //     );
+  //   }
+  // }
 
   @override
   void dispose() {
     _pageController.dispose();
     _animationController.dispose();
+    // socket?.dispose();
     super.dispose();
   }
 
@@ -87,15 +158,16 @@ class _SensorScreenState extends State<SensorScreen>
       body: Stack(
         children: [
           const Positioned(
-              child: TopBar(
-                title: "Thông tin cảm biến",
-                isBack: false,
-              ),
-              top: 0,
-              left: 0,
-              right: 0),
+            child: TopBar(
+              title: "Thông tin cảm biến",
+              isBack: false,
+            ),
+            top: 0,
+            left: 0,
+            right: 0,
+          ),
           Positioned(
-            top: 100 * pix,
+            top: 70 * pix,
             left: 0,
             right: 0,
             bottom: 0,
@@ -127,6 +199,8 @@ class _SensorScreenState extends State<SensorScreen>
                       itemBuilder: (context, index) {
                         final isCurrentPage = index == _currentPage;
                         return AnimatedContainer(
+                          key: ValueKey(
+                              'garden_$index'), // Đảm bảo mỗi thẻ có key riêng
                           duration: Duration(milliseconds: 300),
                           curve: Curves.easeOutQuint,
                           margin: EdgeInsets.only(
@@ -136,7 +210,9 @@ class _SensorScreenState extends State<SensorScreen>
                             right: 5 * pix,
                           ),
                           child: _buildWeatherCard(
-                              context: context, garden: gardens[index]),
+                            context: context,
+                            garden: gardens[index],
+                          ),
                         );
                       },
                     ),
@@ -153,7 +229,7 @@ class _SensorScreenState extends State<SensorScreen>
             left: 0,
             right: 0,
             child: Bottombar(type: 2),
-          )
+          ),
         ],
       ),
     );
@@ -161,8 +237,8 @@ class _SensorScreenState extends State<SensorScreen>
 
   Widget _buildGardenTabs(double pix) {
     return Container(
-      height: 40 * pix,
-      margin: EdgeInsets.only(top: 16 * pix),
+      height: 30 * pix,
+      margin: EdgeInsets.only(top: 10 * pix),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: gardens.length,
@@ -199,7 +275,7 @@ class _SensorScreenState extends State<SensorScreen>
                 style: TextStyle(
                   color: isSelected ? Colors.blue : Colors.white,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  fontSize: 16 * pix,
+                  fontSize: 14 * pix,
                   fontFamily: 'BeVietnamPro',
                 ),
               ),
@@ -257,8 +333,8 @@ class _SensorScreenState extends State<SensorScreen>
             },
             child: Image.asset(
               garden['image'],
-              width: 160 * pix,
-              height: 160 * pix,
+              width: 120 * pix,
+              height: 120 * pix,
               fit: BoxFit.contain,
             ),
           ),
@@ -266,7 +342,7 @@ class _SensorScreenState extends State<SensorScreen>
           // Main weather card
           Container(
             margin: EdgeInsets.symmetric(horizontal: 16 * pix),
-            padding: EdgeInsets.all(16 * pix),
+            padding: EdgeInsets.all(8 * pix),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24 * pix),
               color: Colors.white.withOpacity(0.3),
@@ -289,13 +365,13 @@ class _SensorScreenState extends State<SensorScreen>
                 Text(
                   formattedDate,
                   style: TextStyle(
-                    fontSize: 16 * pix,
+                    fontSize: 12 * pix,
                     color: Colors.white,
                     fontFamily: 'BeVietnamPro',
                   ),
                 ),
 
-                SizedBox(height: 16 * pix),
+                SizedBox(height: 10 * pix),
 
                 // Temperature display
                 Row(
@@ -305,7 +381,7 @@ class _SensorScreenState extends State<SensorScreen>
                     Text(
                       '${garden['temperature']}',
                       style: TextStyle(
-                        fontSize: 80 * pix,
+                        fontSize: 60 * pix,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                         fontFamily: 'BeVietnamPro',
@@ -315,7 +391,7 @@ class _SensorScreenState extends State<SensorScreen>
                     Text(
                       '°C',
                       style: TextStyle(
-                        fontSize: 32 * pix,
+                        fontSize: 26 * pix,
                         fontWeight: FontWeight.bold,
                         color: Colors.white.withOpacity(0.8),
                         fontFamily: 'BeVietnamPro',
@@ -323,13 +399,13 @@ class _SensorScreenState extends State<SensorScreen>
                     ),
                   ],
                 ),
+                SizedBox(height: 8 * pix),
 
-                //weather condition
-
+                // Weather condition
                 Text(
                   ' ${garden['weather']}',
                   style: TextStyle(
-                    fontSize: 20 * pix,
+                    fontSize: 18 * pix,
                     color: Colors.white,
                     fontFamily: 'BeVietnamPro',
                   ),
@@ -338,16 +414,12 @@ class _SensorScreenState extends State<SensorScreen>
                 Divider(
                   color: Colors.white.withOpacity(0.5),
                   thickness: 1.5 * pix,
-                  height: 32 * pix,
+                  height: 18 * pix,
                 ),
 
                 // Weather metrics in grid
                 Container(
                   padding: EdgeInsets.all(12 * pix),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(16 * pix),
-                  ),
                   child: Column(
                     children: [
                       Row(
@@ -401,43 +473,41 @@ class _SensorScreenState extends State<SensorScreen>
                   ),
                 ),
 
-                SizedBox(height: 24 * pix),
-
-                // Actions buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildActionButton(
-                      icon: Icons.history,
-                      label: 'Lịch sử',
-                      pix: pix,
-                      onTap: () {
-                        _showHistoryBottomSheet(context, garden);
-                      },
-                    ),
-                    _buildActionButton(
-                      icon: Icons.notifications,
-                      label: 'Cảnh báo',
-                      pix: pix,
-                      onTap: () {
-                        _showAlertDialog(context, garden);
-                      },
-                    ),
-                    _buildActionButton(
-                      icon: Icons.settings,
-                      label: 'Cài đặt',
-                      pix: pix,
-                      onTap: () {
-                        _showSettingsDialog(context);
-                      },
-                    ),
-                  ],
-                ),
+                // // Actions buttons
+                // Row(
+                //   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                //   children: [
+                //     _buildActionButton(
+                //       icon: Icons.history,
+                //       label: 'Lịch sử',
+                //       pix: pix,
+                //       onTap: () {
+                //         _showHistoryBottomSheet(context, garden);
+                //       },
+                //     ),
+                //     _buildActionButton(
+                //       icon: Icons.notifications,
+                //       label: 'Cảnh báo',
+                //       pix: pix,
+                //       onTap: () {
+                //         _showAlertDialog(context, garden);
+                //       },
+                //     ),
+                //     _buildActionButton(
+                //       icon: Icons.settings,
+                //       label: 'Cài đặt',
+                //       pix: pix,
+                //       onTap: () {
+                //         _showSettingsDialog(context);
+                //       },
+                //     ),
+                //   ],
+                // ),
               ],
             ),
           ),
 
-          SizedBox(height: 80 * pix), // Space for bottom bar
+          SizedBox(height: 56 * pix),
         ],
       ),
     );
@@ -757,7 +827,7 @@ class _SensorScreenState extends State<SensorScreen>
             label: '${value.toStringAsFixed(1)}$unit',
             onChanged: (newValue) {
               setState(() {
-                // In real app, you would update the state value
+                // Trong ứng dụng thực, bạn sẽ cập nhật giá trị trạng thái
               });
             },
           ),

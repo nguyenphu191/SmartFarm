@@ -58,7 +58,7 @@ class _PlantSelectionScreenState extends State<PlantSelectionScreen> {
             child: TopBar(title: 'Chọn cây trồng', isBack: false),
           ),
           Positioned(
-            top: 100 * pix,
+            top: 60 * pix,
             left: 0,
             right: 0,
             bottom: 66 * pix,

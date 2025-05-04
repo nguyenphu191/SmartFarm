@@ -15,9 +15,8 @@ class _TopBarState extends State<TopBar> {
     final size = MediaQuery.of(context).size;
     final pix = size.width / 375;
     return Container(
-      height: 100 * pix,
+      height: 70 * pix,
       width: size.width,
-      padding: EdgeInsets.only(top: 10 * pix),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -32,7 +31,7 @@ class _TopBarState extends State<TopBar> {
         children: [
           Container(
             width: pix * 50,
-            margin: EdgeInsets.only(top: 16 * pix),
+            margin: EdgeInsets.only(top: 0 * pix),
             child: widget.isBack
                 ? IconButton(
                     onPressed: () {
@@ -47,13 +46,13 @@ class _TopBarState extends State<TopBar> {
           ),
           Container(
             width: size.width - 100 * pix,
-            height: 80 * pix,
-            padding: EdgeInsets.only(top: 30 * pix),
+            height: 60 * pix,
+            padding: EdgeInsets.only(top: 16 * pix),
             child: Text(
               '${widget.title}',
               style: TextStyle(
                   color: Colors.white,
-                  fontSize: 24 * pix,
+                  fontSize: 20 * pix,
                   fontWeight: FontWeight.w600,
                   fontFamily: 'BeVietnamPro'),
               textAlign: TextAlign.center,

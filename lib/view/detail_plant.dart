@@ -229,7 +229,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
             child: TopBar(title: screenTitle, isBack: true),
           ),
           Positioned(
-            top: 100 * pix,
+            top: 60 * pix,
             left: 0,
             right: 0,
             bottom: 0,

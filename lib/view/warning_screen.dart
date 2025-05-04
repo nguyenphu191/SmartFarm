@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:smart_farm/res/imagesSF/AppImages.dart';
+import 'package:smart_farm/view/setting_sensor_screen.dart';
 import 'package:smart_farm/widget/bottom_bar.dart';
 import 'package:smart_farm/widget/top_bar.dart';
 
@@ -137,7 +138,7 @@ class _WarningScreenState extends State<WarningScreen> {
 
           // Gradient background
           Positioned(
-            top: 100 * pix,
+            top: 70 * pix,
             left: 0,
             right: 0,
             bottom: 0,
@@ -156,7 +157,7 @@ class _WarningScreenState extends State<WarningScreen> {
 
           // Main content
           Positioned(
-            top: 120 * pix,
+            top: 80 * pix,
             left: 16 * pix,
             right: 16 * pix,
             bottom: 16 * pix,
@@ -166,6 +167,27 @@ class _WarningScreenState extends State<WarningScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Align(
+                          alignment: Alignment.topRight
+                          
+                          
+                          
+                          ,
+                          child: _buildActionButton(
+                            icon: Icons.settings,
+                            label: 'Cài đặt',
+                            pix: pix,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => SettingSensorScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        SizedBox(height: 16 * pix),
                         ...plants
                             .map((section) => _buildPlantSection(section, pix))
                             .toList(),
@@ -307,6 +329,46 @@ class _WarningScreenState extends State<WarningScreen> {
         isBeneficial ? Icons.thumb_up : Icons.warning,
         color: isBeneficial ? Colors.green : Colors.red,
         size: 24 * pix,
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required double pix,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12 * pix),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: 16 * pix,
+          vertical: 8 * pix,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(12 * pix),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              color: Colors.white,
+              size: 24 * pix,
+            ),
+            SizedBox(height: 4 * pix),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12 * pix,
+                fontFamily: 'BeVietnamPro',
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

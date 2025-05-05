@@ -1,11 +1,15 @@
 import 'dart:async';
-
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:smart_farm/res/imagesSF/AppImages.dart';
+import 'package:smart_farm/theme/app_colors.dart';
 import 'package:smart_farm/widget/bottom_bar.dart';
 import 'package:smart_farm/widget/top_bar.dart';
 import 'dart:math' as math;
-import 'package:intl/intl.dart'; // Thêm package này cho định dạng ngày
+import 'package:intl/intl.dart';
+import 'package:mqtt_client/mqtt_client.dart';
+import 'package:mqtt_client/mqtt_server_client.dart';
+import 'package:flutter/foundation.dart';
 
 class SensorScreen extends StatefulWidget {
   @override
@@ -18,9 +22,30 @@ class _SensorScreenState extends State<SensorScreen>
   int _currentPage = 0;
   late AnimationController _animationController;
 
-  // Danh sách các khu vườn
-  final List<Map<String, dynamic>> gardens = [
+  // MQTT Client
+  late MqttServerClient client;
+  final String broker = '103.6.234.189'; // IP của Mosquitto server
+  final int port = 1883;
+  final String clientIdentifier =
+      'smart_farm_flutter_${DateTime.now().millisecondsSinceEpoch}';
+  final String username = 'admin'; // Username
+  final String password = 'admin'; // Password
+
+  bool isConnected = false;
+  bool isConnecting = false;
+  String connectionStatus = 'Chưa kết nối';
+
+  StreamSubscription? mqttSubscription;
+
+  // Thêm biến để lưu trữ các message nhận được theo topic
+  Map<String, List<String>> topicMessages = {};
+  final int maxStoredMessages =
+      10; // Số lượng tối đa tin nhắn lưu trữ cho mỗi topic
+
+  // Danh sách các khu vườn (dữ liệu cứng ban đầu)
+  List<Map<String, dynamic>> gardens = [
     {
+      'id': 'garden_a',
       'name': 'Vườn A',
       'weather': 'Nắng',
       'image': AppImages.mua,
@@ -31,8 +56,10 @@ class _SensorScreenState extends State<SensorScreen>
       'soilMoisture': 42,
       'historyTemp': [28, 30, 32, 34, 33, 31, 29],
       'historyHumidity': [60, 58, 55, 54, 53, 56, 58],
+      'lastUpdated': null,
     },
     {
+      'id': 'garden_b',
       'name': 'Vườn B',
       'weather': 'Mưa nhẹ',
       'image': AppImages.mua,
@@ -43,8 +70,10 @@ class _SensorScreenState extends State<SensorScreen>
       'soilMoisture': 68,
       'historyTemp': [26, 27, 28, 28, 29, 28, 27],
       'historyHumidity': [72, 75, 78, 80, 79, 78, 78],
+      'lastUpdated': null,
     },
     {
+      'id': 'garden_c',
       'name': 'Vườn C',
       'weather': 'Nhiều mây',
       'image': AppImages.mua,
@@ -55,11 +84,9 @@ class _SensorScreenState extends State<SensorScreen>
       'soilMoisture': 55,
       'historyTemp': [29, 30, 31, 32, 31, 30, 31],
       'historyHumidity': [65, 63, 62, 60, 61, 62, 62],
+      'lastUpdated': null,
     },
   ];
-
-  // Thêm dữ liệu cho biểu đồ
-  final List<String> weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
   @override
   void initState() {
@@ -69,12 +96,364 @@ class _SensorScreenState extends State<SensorScreen>
       vsync: this,
       duration: Duration(milliseconds: 1500),
     )..repeat();
+
+    // Khởi tạo kết nối MQTT
+    _initMQTT();
+
+    // Kiểm tra kết nối định kỳ
+    Timer.periodic(Duration(seconds: 30), (timer) {
+      _checkConnection();
+    });
+  }
+
+  void _checkConnection() {
+    if (client.connectionStatus?.state != MqttConnectionState.connected &&
+        !isConnecting) {
+      _reconnect();
+    }
+  }
+
+  void _initMQTT() async {
+    if (isConnecting) return;
+
+    setState(() {
+      isConnecting = true;
+      connectionStatus = 'Đang kết nối...';
+    });
+
+    try {
+      client = MqttServerClient(broker, clientIdentifier);
+      client.port = port;
+      client.logging(on: true);
+      client.keepAlivePeriod = 60;
+      client.autoReconnect = true;
+      client.resubscribeOnAutoReconnect = true;
+
+      // Cấu hình kết nối
+      final connMessage = MqttConnectMessage()
+          .withClientIdentifier(clientIdentifier)
+          .withWillTopic('smart_farm/disconnect')
+          .withWillMessage('Flutter client disconnected')
+          .startClean()
+          .withWillQos(MqttQos.atLeastOnce);
+
+      // Thêm username và password
+      connMessage.authenticateAs(username, password);
+
+      client.connectionMessage = connMessage;
+
+      // Xử lý callbacks
+      client.onConnected = _onConnected;
+      client.onDisconnected = _onDisconnected;
+      client.onSubscribed = _onSubscribed;
+      client.pongCallback = _pongCallback;
+
+      // Kết nối tới server
+      await client.connect();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi kết nối MQTT: $e');
+      }
+      _cleanUpOnError();
+      _showConnectionError();
+    } finally {
+      setState(() {
+        isConnecting = false;
+      });
+    }
+  }
+
+  void _cleanUpOnError() {
+    setState(() {
+      isConnected = false;
+      connectionStatus = 'Lỗi kết nối';
+    });
+
+    try {
+      client.disconnect();
+    } catch (e) {
+      // Bỏ qua lỗi khi disconnect
+    }
+  }
+
+  void _reconnect() async {
+    if (isConnecting) return;
+
+    setState(() {
+      isConnecting = true;
+      connectionStatus = 'Đang kết nối lại...';
+      isConnected = false;
+    });
+
+    try {
+      // Hủy subscription cũ
+      mqttSubscription?.cancel();
+
+      // Đảm bảo client ngắt kết nối sạch sẽ
+      if (client.connectionStatus?.state == MqttConnectionState.connected) {
+        client.disconnect();
+      }
+
+      // Tạo mới client
+      _initMQTT();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi khi reconnect: $e');
+      }
+      _cleanUpOnError();
+    } finally {
+      setState(() {
+        isConnecting = false;
+      });
+    }
+  }
+
+  void _onConnected() {
+    if (kDebugMode) {
+      print('Đã kết nối tới MQTT broker');
+    }
+    setState(() {
+      isConnected = true;
+      connectionStatus = 'Đã kết nối';
+    });
+
+    // Subscribe tới các topic
+    _subscribeToTopics();
+
+    // Bắt đầu lắng nghe messages
+    mqttSubscription = client.updates?.listen(_onMessage);
+  }
+
+  void _onDisconnected() {
+    if (kDebugMode) {
+      print('Ngắt kết nối MQTT');
+    }
+    setState(() {
+      isConnected = false;
+      connectionStatus = 'Mất kết nối';
+    });
+  }
+
+  void _onSubscribed(String topic) {
+    if (kDebugMode) {
+      print('Đã subscribe topic: $topic');
+    }
+  }
+
+  void _pongCallback() {
+    if (kDebugMode) {
+      print('Ping response từ broker');
+    }
+  }
+
+  void _subscribeToTopics() {
+    // Subscribe tới topic của từng vườn
+    for (var garden in gardens) {
+      String topic = 'smart_farm/${garden['id']}/sensor_data';
+      client.subscribe(topic, MqttQos.atLeastOnce);
+    }
+
+    // Subscribe tới topic thời tiết chung
+    client.subscribe('smart_farm/weather', MqttQos.atLeastOnce);
+
+    // Subscribe tới topic alerts
+    client.subscribe('smart_farm/alerts', MqttQos.atLeastOnce);
+  }
+
+  void _onMessage(List<MqttReceivedMessage<MqttMessage>> event) {
+    final MqttPublishMessage recMess = event[0].payload as MqttPublishMessage;
+    final String message =
+        MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
+    final String topic = event[0].topic;
+
+    // Lưu message vào danh sách theo topic
+    setState(() {
+      if (!topicMessages.containsKey(topic)) {
+        topicMessages[topic] = [];
+      }
+
+      // Thêm thông tin thời gian vào message
+      final now = DateTime.now();
+      final timeStr = DateFormat('HH:mm:ss').format(now);
+      final logMessage = "[$timeStr] $message";
+
+      // Thêm vào đầu danh sách (hiển thị mới nhất trước)
+      topicMessages[topic]!.insert(0, logMessage);
+
+      // Giới hạn số lượng message lưu trữ
+      if (topicMessages[topic]!.length > maxStoredMessages) {
+        topicMessages[topic]!.removeLast();
+      }
+    });
+
+    if (kDebugMode) {
+      print('Nhận message từ topic $topic: $message');
+    }
+
+    try {
+      final data = json.decode(message);
+
+      if (topic.contains('/sensor_data')) {
+        // Xử lý dữ liệu cảm biến từng vườn
+        _updateGardenData(topic, data);
+      } else if (topic == 'smart_farm/weather') {
+        // Xử lý dữ liệu thời tiết chung
+        _updateWeatherData(data);
+      } else if (topic == 'smart_farm/alerts') {
+        // Xử lý thông báo cảnh báo
+        _showAlert(data);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Lỗi parse message: $e');
+      }
+    }
+  }
+
+  void _updateGardenData(String topic, Map<String, dynamic> data) {
+    String gardenId = '';
+
+    // Trích xuất ID vườn từ topic
+    for (var garden in gardens) {
+      if (topic.contains(garden['id'])) {
+        gardenId = garden['id'];
+        break;
+      }
+    }
+
+    if (gardenId.isNotEmpty) {
+      setState(() {
+        // Tìm và cập nhật dữ liệu cho vườn tương ứng
+        for (var i = 0; i < gardens.length; i++) {
+          if (gardens[i]['id'] == gardenId) {
+            // Cập nhật dữ liệu sensor
+            if (data.containsKey('temperature'))
+              gardens[i]['temperature'] = data['temperature'];
+            if (data.containsKey('humidity'))
+              gardens[i]['humidity'] = data['humidity'];
+            if (data.containsKey('wind')) gardens[i]['wind'] = data['wind'];
+            if (data.containsKey('light')) gardens[i]['light'] = data['light'];
+            if (data.containsKey('soilMoisture'))
+              gardens[i]['soilMoisture'] = data['soilMoisture'];
+
+            // Cập nhật lịch sử
+            if (data.containsKey('temperature')) {
+              List<dynamic> tempHistory = List.from(gardens[i]['historyTemp']);
+              tempHistory.removeAt(0);
+              tempHistory.add(data['temperature']);
+              gardens[i]['historyTemp'] = tempHistory;
+            }
+
+            if (data.containsKey('humidity')) {
+              List<dynamic> humidityHistory =
+                  List.from(gardens[i]['historyHumidity']);
+              humidityHistory.removeAt(0);
+              humidityHistory.add(data['humidity']);
+              gardens[i]['historyHumidity'] = humidityHistory;
+            }
+
+            // Cập nhật thời gian cập nhật cuối
+            gardens[i]['lastUpdated'] = DateTime.now();
+            break;
+          }
+        }
+      });
+    }
+  }
+
+  void _updateWeatherData(Map<String, dynamic> data) {
+    setState(() {
+      // Cập nhật thông tin thời tiết cho từng vườn nếu có
+      for (var i = 0; i < gardens.length; i++) {
+        String gardenId = gardens[i]['id'];
+        if (data.containsKey(gardenId) &&
+            data[gardenId] is Map &&
+            data[gardenId].containsKey('weather')) {
+          gardens[i]['weather'] = data[gardenId]['weather'];
+
+          // Cập nhật hình ảnh thời tiết tương ứng (có thể mở rộng thêm)
+          _updateWeatherImage(i);
+        }
+      }
+    });
+  }
+
+  void _updateWeatherImage(int gardenIndex) {
+    // Thay đổi hình ảnh thời tiết dựa vào điều kiện thời tiết
+    // Hiện tại chưa có nhiều icon thời tiết, dùng mặc định
+  }
+
+  void _showAlert(Map<String, dynamic> data) {
+    // Hiển thị cảnh báo từ server
+    if (data.containsKey('message') && data.containsKey('level')) {
+      String message = data['message'];
+      String level = data['level'].toString().toLowerCase();
+
+      Color backgroundColor;
+      switch (level) {
+        case 'warning':
+          backgroundColor = AppColors.statusWarning;
+          break;
+        case 'danger':
+          backgroundColor = AppColors.statusDanger;
+          break;
+        default:
+          backgroundColor = AppColors.primaryBlue;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: backgroundColor,
+          duration: Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Đóng',
+            textColor: Colors.white,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showConnectionError() {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Không thể kết nối tới server MQTT'),
+          backgroundColor: AppColors.statusDanger,
+          duration: Duration(seconds: 3),
+          action: SnackBarAction(
+            label: 'Thử lại',
+            textColor: Colors.white,
+            onPressed: () {
+              _initMQTT();
+            },
+          ),
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
     _pageController.dispose();
     _animationController.dispose();
+
+    // Hủy subscription MQTT
+    mqttSubscription?.cancel();
+
+    // Đảm bảo ngắt kết nối MQTT
+    try {
+      if (client.connectionStatus?.state == MqttConnectionState.connected) {
+        client.disconnect();
+      }
+    } catch (e) {
+      // Bỏ qua lỗi khi disconnect
+    }
+
     super.dispose();
   }
 
@@ -87,64 +466,69 @@ class _SensorScreenState extends State<SensorScreen>
       body: Stack(
         children: [
           const Positioned(
-              child: TopBar(
-                title: "Thông tin cảm biến",
-                isBack: false,
-              ),
-              top: 0,
-              left: 0,
-              right: 0),
+            child: TopBar(
+              title: "Thông tin cảm biến",
+              isBack: false,
+            ),
+            top: 0,
+            left: 0,
+            right: 0,
+          ),
           Positioned(
-            top: 100 * pix,
+            top: 70 * pix,
             left: 0,
             right: 0,
             bottom: 0,
             child: Container(
               width: size.width,
-              height: size.height - 100 * pix,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xff47BFDF), Color(0xff4A91FF)],
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                ),
+              height: size.height - 70 * pix,
+              decoration: BoxDecoration(
+                gradient: AppColors.backgroundGradient,
               ),
-              child: Column(
-                children: [
-                  // Garden selector tabs
-                  _buildGardenTabs(pix),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    // Garden selector tabs
+                    _buildGardenTabs(pix),
 
-                  // Main weather page view
-                  Expanded(
-                    child: PageView.builder(
-                      itemCount: gardens.length,
-                      controller: _pageController,
-                      onPageChanged: (index) {
-                        setState(() {
-                          _currentPage = index;
-                        });
-                      },
-                      itemBuilder: (context, index) {
-                        final isCurrentPage = index == _currentPage;
-                        return AnimatedContainer(
-                          duration: Duration(milliseconds: 300),
-                          curve: Curves.easeOutQuint,
-                          margin: EdgeInsets.only(
-                            top: isCurrentPage ? 0 : 20 * pix,
-                            bottom: isCurrentPage ? 0 : 20 * pix,
-                            left: 5 * pix,
-                            right: 5 * pix,
-                          ),
-                          child: _buildWeatherCard(
-                              context: context, garden: gardens[index]),
-                        );
-                      },
+                    // Main weather page view
+                    Container(
+                      height: 560 * pix,
+                      width: size.width,
+                      child: PageView.builder(
+                        itemCount: gardens.length,
+                        controller: _pageController,
+                        onPageChanged: (index) {
+                          setState(() {
+                            _currentPage = index;
+                          });
+                        },
+                        itemBuilder: (context, index) {
+                          final isCurrentPage = index == _currentPage;
+                          return AnimatedContainer(
+                            key: ValueKey('garden_$index'),
+                            duration: Duration(milliseconds: 300),
+                            curve: Curves.easeOutQuint,
+                            margin: EdgeInsets.only(
+                              top: isCurrentPage ? 0 : 20 * pix,
+                              bottom: isCurrentPage ? 0 : 20 * pix,
+                              left: 5 * pix,
+                              right: 5 * pix,
+                            ),
+                            child: _buildWeatherCard(
+                              context: context,
+                              garden: gardens[index],
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
 
-                  // Page indicator
-                  _buildPageIndicator(pix),
-                ],
+                    // Connection indicator
+                    _buildConnectionStatus(pix),
+                    SizedBox(height: 96 * pix),
+                  ],
+                ),
               ),
             ),
           ),
@@ -153,16 +537,327 @@ class _SensorScreenState extends State<SensorScreen>
             left: 0,
             right: 0,
             child: Bottombar(type: 2),
-          )
+          ),
         ],
       ),
     );
   }
 
+  Widget _buildConnectionStatus(double pix) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16 * pix, vertical: 8 * pix),
+      padding: EdgeInsets.symmetric(horizontal: 12 * pix, vertical: 8 * pix),
+      decoration: BoxDecoration(
+        color: isConnected
+            ? AppColors.statusGood.withOpacity(0.2)
+            : AppColors.statusDanger.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(20 * pix),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8 * pix,
+            height: 8 * pix,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color:
+                  isConnected ? AppColors.statusGood : AppColors.statusDanger,
+            ),
+          ),
+          SizedBox(width: 8 * pix),
+          Text(
+            connectionStatus,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 12 * pix,
+              fontWeight: FontWeight.w500,
+              fontFamily: 'BeVietnamPro',
+            ),
+          ),
+          if (!isConnected && !isConnecting) ...[
+            SizedBox(width: 8 * pix),
+            GestureDetector(
+              onTap: _initMQTT,
+              child: Icon(
+                Icons.refresh,
+                color: Colors.white,
+                size: 16 * pix,
+              ),
+            ),
+          ],
+          Spacer(),
+          // Thêm nút debug
+          GestureDetector(
+            onTap: () => _showDebugDialog(context),
+            child: Container(
+              padding:
+                  EdgeInsets.symmetric(horizontal: 10 * pix, vertical: 4 * pix),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(16 * pix),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.bug_report,
+                    color: Colors.white,
+                    size: 16 * pix,
+                  ),
+                  SizedBox(width: 4 * pix),
+                  Text(
+                    'Debug',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12 * pix,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: 'BeVietnamPro',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 4. Hàm hiển thị dialog debug
+  void _showDebugDialog(BuildContext context) {
+    final pix = MediaQuery.of(context).size.width / 375;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16 * pix),
+          ),
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.9,
+            height: MediaQuery.of(context).size.height * 0.8,
+            padding: EdgeInsets.all(16 * pix),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'MQTT Debug',
+                      style: TextStyle(
+                        fontSize: 20 * pix,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'BeVietnamPro',
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16 * pix),
+                Expanded(
+                  child: topicMessages.isEmpty
+                      ? Center(
+                          child: Text('Chưa có dữ liệu nhận được từ MQTT.'))
+                      : DefaultTabController(
+                          length: topicMessages.keys.length,
+                          child: Column(
+                            children: [
+                              TabBar(
+                                isScrollable: true,
+                                labelColor: AppColors.primaryGreen,
+                                unselectedLabelColor: Colors.grey,
+                                tabs: topicMessages.keys.map((topic) {
+                                  // Hiển thị tên topic ngắn gọn
+                                  String displayTopic = topic.split('/').last;
+                                  return Tab(
+                                    text: displayTopic,
+                                  );
+                                }).toList(),
+                              ),
+                              Expanded(
+                                child: TabBarView(
+                                  children: topicMessages.keys.map((topic) {
+                                    return _buildTopicMessagesList(topic, pix);
+                                  }).toList(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                ),
+                SizedBox(height: 16 * pix),
+                // Thêm nút gửi message MQTT test
+                ElevatedButton(
+                  onPressed: () => _publishTestMessage(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryGreen,
+                  ),
+                  child: Text(
+                    'Gửi message test',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'BeVietnamPro',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // 5. Hàm hiển thị danh sách message cho một topic
+  Widget _buildTopicMessagesList(String topic, double pix) {
+    if (topicMessages[topic]?.isEmpty ?? true) {
+      return Center(
+        child: Text(
+          'Chưa có dữ liệu',
+          style: TextStyle(
+            fontSize: 16 * pix,
+            fontFamily: 'BeVietnamPro',
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      itemCount: topicMessages[topic]!.length,
+      separatorBuilder: (context, index) => Divider(),
+      itemBuilder: (context, index) {
+        final message = topicMessages[topic]![index];
+        return Container(
+          padding: EdgeInsets.all(8 * pix),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Topic: $topic',
+                style: TextStyle(
+                  fontSize: 12 * pix,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textGrey,
+                  fontFamily: 'BeVietnamPro',
+                ),
+              ),
+              SizedBox(height: 4 * pix),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(8 * pix),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8 * pix),
+                ),
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    fontSize: 14 * pix,
+                    fontFamily: 'BeVietnamPro',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // 6. Hàm gửi message test
+  void _publishTestMessage() {
+    if (client.connectionStatus?.state == MqttConnectionState.connected) {
+      try {
+        // Tạo message test với timestamp
+        final now = DateTime.now();
+        final timeStr = DateFormat('HH:mm:ss').format(now);
+
+        // Test data cho từng garden
+        for (var garden in gardens) {
+          final gardenId = garden['id'];
+          final testData = {
+            'temperature':
+                (20 + math.Random().nextDouble() * 15).toStringAsFixed(1),
+            'humidity':
+                (40 + math.Random().nextDouble() * 50).toStringAsFixed(1),
+            'wind': (5 + math.Random().nextInt(15)),
+            'light': (200 + math.Random().nextInt(600)),
+            'soilMoisture': (30 + math.Random().nextInt(50)),
+            'timestamp': timeStr,
+          };
+
+          final topic = 'smart_farm/$gardenId/sensor_data';
+          final payload = json.encode(testData);
+          final builder = MqttClientPayloadBuilder();
+          builder.addString(payload);
+
+          client.publishMessage(topic, MqttQos.atLeastOnce, builder.payload!,
+              retain: false);
+
+          print('Đã gửi message test tới topic $topic: $payload');
+        }
+
+        // Test data cho weather
+        final weatherStates = [
+          'Nắng',
+          'Mưa nhẹ',
+          'Nhiều mây',
+          'Nắng gián đoạn'
+        ];
+        final weatherData = {};
+
+        for (var garden in gardens) {
+          weatherData[garden['id']] = {
+            'weather':
+                weatherStates[math.Random().nextInt(weatherStates.length)],
+            'timestamp': timeStr,
+          };
+        }
+
+        final weatherTopic = 'smart_farm/weather';
+        final weatherPayload = json.encode(weatherData);
+        final weatherBuilder = MqttClientPayloadBuilder();
+        weatherBuilder.addString(weatherPayload);
+
+        client.publishMessage(
+            weatherTopic, MqttQos.atLeastOnce, weatherBuilder.payload!,
+            retain: false);
+
+        print('Đã gửi message test tới topic $weatherTopic: $weatherPayload');
+
+        // Hiển thị thông báo
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã gửi message test thành công'),
+            backgroundColor: AppColors.statusGood,
+          ),
+        );
+      } catch (e) {
+        print('Lỗi khi gửi message test: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi gửi message test: $e'),
+            backgroundColor: AppColors.statusDanger,
+          ),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Chưa kết nối tới MQTT broker'),
+          backgroundColor: AppColors.statusDanger,
+        ),
+      );
+    }
+  }
+
   Widget _buildGardenTabs(double pix) {
     return Container(
-      height: 40 * pix,
-      margin: EdgeInsets.only(top: 16 * pix),
+      height: 30 * pix,
+      margin: EdgeInsets.only(top: 10 * pix),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: gardens.length,
@@ -197,9 +892,9 @@ class _SensorScreenState extends State<SensorScreen>
               child: Text(
                 gardens[index]['name'],
                 style: TextStyle(
-                  color: isSelected ? Colors.blue : Colors.white,
+                  color: isSelected ? AppColors.primaryGreen : Colors.white,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  fontSize: 16 * pix,
+                  fontSize: 14 * pix,
                   fontFamily: 'BeVietnamPro',
                 ),
               ),
@@ -223,7 +918,7 @@ class _SensorScreenState extends State<SensorScreen>
             width: index == _currentPage ? 24 * pix : 10 * pix,
             decoration: BoxDecoration(
               color: index == _currentPage
-                  ? Colors.white
+                  ? AppColors.primaryGreen
                   : Colors.white.withOpacity(0.4),
               borderRadius: BorderRadius.circular(5 * pix),
             ),
@@ -238,10 +933,17 @@ class _SensorScreenState extends State<SensorScreen>
     final size = MediaQuery.of(context).size;
     final pix = size.width / 375;
 
-    // Lấy ngày hiện tại
     final now = DateTime.now();
     final dateFormat = DateFormat('d MMMM, yyyy');
     final formattedDate = dateFormat.format(now);
+
+    // Format thời gian cập nhật cuối
+    String lastUpdatedText = "";
+    if (garden['lastUpdated'] != null) {
+      final lastUpdated = garden['lastUpdated'] as DateTime;
+      lastUpdatedText =
+          "Cập nhật lúc: ${DateFormat('HH:mm:ss').format(lastUpdated)}";
+    }
 
     return SingleChildScrollView(
       child: Column(
@@ -257,8 +959,8 @@ class _SensorScreenState extends State<SensorScreen>
             },
             child: Image.asset(
               garden['image'],
-              width: 160 * pix,
-              height: 160 * pix,
+              width: 120 * pix,
+              height: 120 * pix,
               fit: BoxFit.contain,
             ),
           ),
@@ -266,36 +968,52 @@ class _SensorScreenState extends State<SensorScreen>
           // Main weather card
           Container(
             margin: EdgeInsets.symmetric(horizontal: 16 * pix),
-            padding: EdgeInsets.all(16 * pix),
+            padding: EdgeInsets.all(10 * pix),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(24 * pix),
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withOpacity(0.15),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.blue.withOpacity(0.2),
+                  color: Colors.black.withOpacity(0.1),
                   blurRadius: 15,
-                  spreadRadius: 5,
+                  spreadRadius: 1,
+                  offset: Offset(0, 8),
                 ),
               ],
               border: Border.all(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withOpacity(0.3),
                 width: 1.5,
               ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Date
-                Text(
-                  formattedDate,
-                  style: TextStyle(
-                    fontSize: 16 * pix,
-                    color: Colors.white,
-                    fontFamily: 'BeVietnamPro',
-                  ),
+                // Date and last updated
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      formattedDate,
+                      style: TextStyle(
+                        fontSize: 12 * pix,
+                        color: Colors.white,
+                        fontFamily: 'BeVietnamPro',
+                      ),
+                    ),
+                    if (garden['lastUpdated'] != null)
+                      Text(
+                        lastUpdatedText,
+                        style: TextStyle(
+                          fontSize: 12 * pix,
+                          color: Colors.white.withOpacity(0.8),
+                          fontFamily: 'BeVietnamPro',
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                  ],
                 ),
 
-                SizedBox(height: 16 * pix),
+                SizedBox(height: 10 * pix),
 
                 // Temperature display
                 Row(
@@ -305,7 +1023,7 @@ class _SensorScreenState extends State<SensorScreen>
                     Text(
                       '${garden['temperature']}',
                       style: TextStyle(
-                        fontSize: 80 * pix,
+                        fontSize: 50 * pix,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                         fontFamily: 'BeVietnamPro',
@@ -315,7 +1033,7 @@ class _SensorScreenState extends State<SensorScreen>
                     Text(
                       '°C',
                       style: TextStyle(
-                        fontSize: 32 * pix,
+                        fontSize: 20 * pix,
                         fontWeight: FontWeight.bold,
                         color: Colors.white.withOpacity(0.8),
                         fontFamily: 'BeVietnamPro',
@@ -323,113 +1041,84 @@ class _SensorScreenState extends State<SensorScreen>
                     ),
                   ],
                 ),
+                SizedBox(height: 10 * pix),
 
-                //weather condition
-
-                Text(
-                  ' ${garden['weather']}',
-                  style: TextStyle(
-                    fontSize: 20 * pix,
-                    color: Colors.white,
-                    fontFamily: 'BeVietnamPro',
+                // Weather condition
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 16 * pix,
+                    vertical: 5 * pix,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20 * pix),
+                  ),
+                  child: Text(
+                    garden['weather'],
+                    style: TextStyle(
+                      fontSize: 14 * pix,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      fontFamily: 'BeVietnamPro',
+                    ),
                   ),
                 ),
 
                 Divider(
-                  color: Colors.white.withOpacity(0.5),
-                  thickness: 1.5 * pix,
-                  height: 32 * pix,
+                  color: Colors.white.withOpacity(0.3),
+                  height: 20 * pix,
+                  thickness: 1.5,
                 ),
 
                 // Weather metrics in grid
-                Container(
-                  padding: EdgeInsets.all(12 * pix),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(16 * pix),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildMetricCard(
-                              icon: Icons.air,
-                              value: '${garden['wind']} km/h',
-                              label: 'Gió',
-                              pix: pix,
-                              iconColor: Colors.cyan,
-                            ),
-                          ),
-                          SizedBox(width: 8 * pix),
-                          Expanded(
-                            child: _buildMetricCard(
-                              icon: Icons.opacity,
-                              value: '${garden['humidity']}%',
-                              label: 'Độ ẩm',
-                              pix: pix,
-                              iconColor: Colors.blue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 8 * pix),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildMetricCard(
-                              icon: Icons.wb_sunny,
-                              value: '${garden['light']} lux',
-                              label: 'Ánh sáng',
-                              pix: pix,
-                              iconColor: Colors.amber,
-                            ),
-                          ),
-                          SizedBox(width: 8 * pix),
-                          Expanded(
-                            child: _buildMetricCard(
-                              icon: Icons.grass,
-                              value: '${garden['soilMoisture']}%',
-                              label: 'Độ ẩm đất',
-                              pix: pix,
-                              iconColor: Colors.green,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                SizedBox(height: 24 * pix),
-
-                // Actions buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                Column(
                   children: [
-                    _buildActionButton(
-                      icon: Icons.history,
-                      label: 'Lịch sử',
-                      pix: pix,
-                      onTap: () {
-                        _showHistoryBottomSheet(context, garden);
-                      },
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildMetricCard(
+                            icon: Icons.air,
+                            value: '${garden['wind']} km/h',
+                            label: 'Gió',
+                            pix: pix,
+                            iconColor: AppColors.lightBlue,
+                          ),
+                        ),
+                        SizedBox(width: 12 * pix),
+                        Expanded(
+                          child: _buildMetricCard(
+                            icon: Icons.opacity,
+                            value: '${garden['humidity']}%',
+                            label: 'Độ ẩm',
+                            pix: pix,
+                            iconColor: AppColors.primaryBlue,
+                          ),
+                        ),
+                      ],
                     ),
-                    _buildActionButton(
-                      icon: Icons.notifications,
-                      label: 'Cảnh báo',
-                      pix: pix,
-                      onTap: () {
-                        _showAlertDialog(context, garden);
-                      },
-                    ),
-                    _buildActionButton(
-                      icon: Icons.settings,
-                      label: 'Cài đặt',
-                      pix: pix,
-                      onTap: () {
-                        _showSettingsDialog(context);
-                      },
+                    SizedBox(height: 12 * pix),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildMetricCard(
+                            icon: Icons.wb_sunny,
+                            value: '${garden['light']} lux',
+                            label: 'Ánh sáng',
+                            pix: pix,
+                            iconColor: AppColors.accentYellow,
+                          ),
+                        ),
+                        SizedBox(width: 12 * pix),
+                        Expanded(
+                          child: _buildMetricCard(
+                            icon: Icons.grass,
+                            value: '${garden['soilMoisture']}%',
+                            label: 'Độ ẩm đất',
+                            pix: pix,
+                            iconColor: AppColors.primaryGreen,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -437,7 +1126,7 @@ class _SensorScreenState extends State<SensorScreen>
             ),
           ),
 
-          SizedBox(height: 80 * pix), // Space for bottom bar
+          SizedBox(height: 56 * pix),
         ],
       ),
     );
@@ -451,15 +1140,15 @@ class _SensorScreenState extends State<SensorScreen>
     required Color iconColor,
   }) {
     return Container(
-      padding: EdgeInsets.all(12 * pix),
+      padding: EdgeInsets.all(10 * pix),
       decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 65, 65, 65).withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12 * pix),
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(16 * pix),
       ),
       child: Column(
         children: [
           Container(
-            padding: EdgeInsets.all(8 * pix),
+            padding: EdgeInsets.all(10 * pix),
             decoration: BoxDecoration(
               color: iconColor,
               shape: BoxShape.circle,
@@ -470,7 +1159,7 @@ class _SensorScreenState extends State<SensorScreen>
               size: 24 * pix,
             ),
           ),
-          SizedBox(height: 8 * pix),
+          SizedBox(height: 12 * pix),
           Text(
             value,
             style: TextStyle(
@@ -491,561 +1180,6 @@ class _SensorScreenState extends State<SensorScreen>
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required double pix,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12 * pix),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: 16 * pix,
-          vertical: 8 * pix,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.3),
-          borderRadius: BorderRadius.circular(12 * pix),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color: Colors.white,
-              size: 24 * pix,
-            ),
-            SizedBox(height: 4 * pix),
-            Text(
-              label,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 12 * pix,
-                fontFamily: 'BeVietnamPro',
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showHistoryBottomSheet(
-      BuildContext context, Map<String, dynamic> garden) {
-    final pix = MediaQuery.of(context).size.width / 375;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(24 * pix),
-            ),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 40 * pix,
-                height: 5 * pix,
-                margin: EdgeInsets.symmetric(vertical: 12 * pix),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2.5 * pix),
-                ),
-              ),
-              Padding(
-                padding: EdgeInsets.all(16 * pix),
-                child: Text(
-                  'Lịch sử dữ liệu: ${garden['name']}',
-                  style: TextStyle(
-                    fontSize: 20 * pix,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'BeVietnamPro',
-                  ),
-                ),
-              ),
-              Divider(),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: 30, // 30 days of history
-                  itemBuilder: (context, index) {
-                    final date = DateTime.now().subtract(Duration(days: index));
-                    final dateStr = DateFormat('dd/MM/yyyy').format(date);
-
-                    // Random history data (in real app this would come from database)
-                    final temp = 25 + math.Random().nextInt(10);
-                    final humidity = 50 + math.Random().nextInt(30);
-                    final light = 300 + math.Random().nextInt(300);
-                    final soil = 40 + math.Random().nextInt(40);
-
-                    return ListTile(
-                      title: Text(
-                        dateStr,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'BeVietnamPro',
-                        ),
-                      ),
-                      subtitle: Text(
-                        'Nhiệt độ: $temp°C | Độ ẩm: $humidity% | Ánh sáng: $light lux',
-                        style: TextStyle(fontFamily: 'BeVietnamPro'),
-                      ),
-                      trailing: Container(
-                        width: 40 * pix,
-                        height: 40 * pix,
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.remove_red_eye,
-                          color: Colors.blue,
-                        ),
-                      ),
-                      onTap: () {
-                        // Show detailed view for this day
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Xem chi tiết ngày $dateStr'),
-                            backgroundColor: Colors.blue,
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showAlertDialog(BuildContext context, Map<String, dynamic> garden) {
-    final pix = MediaQuery.of(context).size.width / 375;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(
-            'Cài đặt cảnh báo',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontFamily: 'BeVietnamPro',
-              fontSize: 20 * pix,
-            ),
-          ),
-          content: Container(
-            width: MediaQuery.of(context).size.width * 0.8,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildAlertSlider(
-                  label: 'Nhiệt độ cao',
-                  value: 35.0,
-                  min: 20.0,
-                  max: 45.0,
-                  unit: '°C',
-                  pix: pix,
-                ),
-                _buildAlertSlider(
-                  label: 'Nhiệt độ thấp',
-                  value: 15.0,
-                  min: 5.0,
-                  max: 25.0,
-                  unit: '°C',
-                  pix: pix,
-                ),
-                _buildAlertSlider(
-                  label: 'Độ ẩm thấp',
-                  value: 30.0,
-                  min: 10.0,
-                  max: 50.0,
-                  unit: '%',
-                  pix: pix,
-                ),
-                _buildAlertSlider(
-                  label: 'Ánh sáng cao',
-                  value: 800.0,
-                  min: 500.0,
-                  max: 1500.0,
-                  unit: 'lux',
-                  pix: pix,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text('Hủy'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Đã lưu cài đặt cảnh báo'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-              ),
-              child: Text(
-                'Lưu',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildAlertSlider({
-    required String label,
-    required double value,
-    required double min,
-    required double max,
-    required String unit,
-    required double pix,
-  }) {
-    return StatefulBuilder(builder: (context, setState) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontFamily: 'BeVietnamPro',
-                  fontSize: 16 * pix,
-                ),
-              ),
-              Text(
-                '${value.toStringAsFixed(1)}$unit',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'BeVietnamPro',
-                ),
-              ),
-            ],
-          ),
-          Slider(
-            value: value,
-            min: min,
-            max: max,
-            divisions: ((max - min) * 10).toInt(),
-            label: '${value.toStringAsFixed(1)}$unit',
-            onChanged: (newValue) {
-              setState(() {
-                // In real app, you would update the state value
-              });
-            },
-          ),
-          SizedBox(height: 8 * pix),
-        ],
-      );
-    });
-  }
-
-  void _showSettingsDialog(BuildContext context) {
-    final pix = MediaQuery.of(context).size.width / 375;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(
-            'Cài đặt cảm biến',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontFamily: 'BeVietnamPro',
-              fontSize: 20 * pix,
-            ),
-          ),
-          content: Container(
-            width: MediaQuery.of(context).size.width * 0.8,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading:
-                      Icon(Icons.schedule, color: Colors.blue, size: 24 * pix),
-                  title: Text(
-                    'Tần suất cập nhật',
-                    style: TextStyle(
-                      fontFamily: 'BeVietnamPro',
-                      fontSize: 16 * pix,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Mỗi 15 phút',
-                    style: TextStyle(
-                      fontFamily: 'BeVietnamPro',
-                      fontSize: 14 * pix,
-                    ),
-                  ),
-                  trailing: Icon(Icons.arrow_forward_ios, size: 16 * pix),
-                  onTap: () {},
-                ),
-                ListTile(
-                  leading: Icon(Icons.device_hub,
-                      color: Colors.blue, size: 24 * pix),
-                  title: Text(
-                    'Trạng thái thiết bị',
-                    style: TextStyle(
-                      fontFamily: 'BeVietnamPro',
-                      fontSize: 16 * pix,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Đang hoạt động',
-                    style: TextStyle(
-                      color: Colors.green,
-                      fontFamily: 'BeVietnamPro',
-                      fontSize: 14 * pix,
-                    ),
-                  ),
-                  trailing: Icon(Icons.arrow_forward_ios, size: 16 * pix),
-                  onTap: () {},
-                ),
-                ListTile(
-                  leading: Icon(Icons.battery_full,
-                      color: Colors.blue, size: 24 * pix),
-                  title: Text(
-                    'Pin',
-                    style: TextStyle(
-                      fontFamily: 'BeVietnamPro',
-                      fontSize: 16 * pix,
-                    ),
-                  ),
-                  subtitle: Text(
-                    '85%',
-                    style: TextStyle(
-                      fontFamily: 'BeVietnamPro',
-                      fontSize: 14 * pix,
-                    ),
-                  ),
-                  trailing: Icon(Icons.arrow_forward_ios, size: 16 * pix),
-                  onTap: () {},
-                ),
-                ListTile(
-                  leading: Icon(Icons.wifi, color: Colors.blue),
-                  title: Text(
-                    'Kết nối',
-                    style: TextStyle(
-                      fontFamily: 'BeVietnamPro',
-                      fontSize: 16 * pix,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'WiFi',
-                    style: TextStyle(
-                      fontFamily: 'BeVietnamPro',
-                      fontSize: 14 * pix,
-                    ),
-                  ),
-                  trailing: Icon(Icons.arrow_forward_ios, size: 16 * pix),
-                  onTap: () {},
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text('Đóng',
-                  style: TextStyle(
-                    fontFamily: 'BeVietnamPro',
-                    fontSize: 16 * pix,
-                  )),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _showCalibrationDialog(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-              ),
-              child: Text(
-                'Hiệu chỉnh',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'BeVietnamPro',
-                    fontSize: 16 * pix),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showCalibrationDialog(BuildContext context) {
-    final pix = MediaQuery.of(context).size.width / 375;
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(
-            'Hiệu chỉnh cảm biến',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontFamily: 'BeVietnamPro',
-              fontSize: 20 * pix,
-            ),
-          ),
-          content: Container(
-            width: MediaQuery.of(context).size.width * 0.8,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Bạn có chắc chắn muốn hiệu chỉnh lại các cảm biến không?',
-                  style: TextStyle(
-                    fontFamily: 'BeVietnamPro',
-                    fontSize: 16 * pix,
-                  ),
-                ),
-                SizedBox(height: 16 * pix),
-                Text(
-                  'Quá trình này sẽ mất khoảng 5 phút và các cảm biến sẽ tạm thời không hoạt động trong thời gian hiệu chỉnh.',
-                  style: TextStyle(
-                    color: Colors.grey[700],
-                    fontFamily: 'BeVietnamPro',
-                    fontSize: 14 * pix,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: Text('Hủy'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _showCalibrationProgress(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-              ),
-              child: Text(
-                'Hiệu chỉnh',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontFamily: 'BeVietnamPro',
-                    fontSize: 16 * pix),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showCalibrationProgress(BuildContext context) {
-    final pix = MediaQuery.of(context).size.width / 375;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            double progress = 0.0;
-
-            // Simulate calibration progress
-            Future.delayed(Duration(milliseconds: 100), () {
-              var timer = Timer.periodic(Duration(milliseconds: 100), (timer) {
-                setState(() {
-                  progress += 0.01;
-                  if (progress >= 1.0) {
-                    timer.cancel();
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Hiệu chỉnh cảm biến thành công'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
-                });
-              });
-            });
-
-            return AlertDialog(
-              title: Text(
-                'Đang hiệu chỉnh...',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'BeVietnamPro',
-                  fontSize: 20 * pix,
-                ),
-              ),
-              content: Container(
-                width: MediaQuery.of(context).size.width * 0.8,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    LinearProgressIndicator(
-                      value: progress,
-                      backgroundColor: Colors.grey[300],
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                    ),
-                    SizedBox(height: 16 * pix),
-                    Text(
-                      '${(progress * 100).toInt()}%',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'BeVietnamPro',
-                        fontSize: 20 * pix,
-                      ),
-                    ),
-                    SizedBox(height: 8 * pix),
-                    Text(
-                      'Vui lòng không tắt ứng dụng trong quá trình hiệu chỉnh',
-                      style: TextStyle(
-                        color: Colors.grey[700],
-                        fontSize: 12 * pix,
-                        fontFamily: 'BeVietnamPro',
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
     );
   }
 }

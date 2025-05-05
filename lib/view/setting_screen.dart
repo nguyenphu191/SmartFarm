@@ -38,7 +38,7 @@ class _SettingScreenState extends State<SettingScreen> {
 
           // Gradient background
           Positioned(
-            top: 100 * pix,
+            top: 70 * pix,
             left: 0,
             right: 0,
             bottom: 0,

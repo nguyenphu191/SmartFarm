@@ -5,6 +5,7 @@ import 'package:smart_farm/view/home_screen.dart';
 import 'package:smart_farm/view/sensor_screen.dart';
 import 'package:smart_farm/view/setting_screen.dart';
 import 'package:smart_farm/view/warning_screen.dart';
+import 'package:smart_farm/theme/app_colors.dart';
 
 class Bottombar extends StatefulWidget {
   const Bottombar({super.key, required this.type});
@@ -19,15 +20,20 @@ class _BottombarState extends State<Bottombar> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final pix = size.width / 375;
+
     return Container(
-      height: 66 * pix, // Tăng chiều cao để chứa thêm nhãn
+      height: 70 * pix,
       width: size.width,
       decoration: BoxDecoration(
-        color: Colors.white, // Màu nền trắng
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24 * pix),
+          topRight: Radius.circular(24 * pix),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
             offset: const Offset(0, -5),
           ),
         ],
@@ -43,7 +49,7 @@ class _BottombarState extends State<Bottombar> {
               );
             },
             image: AppImages.iconhome,
-            label: 'Trang chủ', // Thêm nhãn
+            label: 'Trang chủ',
             enabled: widget.type == 1,
           ),
           _buildActionButton(
@@ -54,7 +60,7 @@ class _BottombarState extends State<Bottombar> {
               );
             },
             image: AppImages.iconthom,
-            label: 'Khí hậu', // Thêm nhãn
+            label: 'Khí hậu',
             enabled: widget.type == 2,
           ),
           _buildActionButton(
@@ -65,7 +71,7 @@ class _BottombarState extends State<Bottombar> {
               );
             },
             image: AppImages.iconeye,
-            label: 'Lịch sử', // Thêm nhãn
+            label: 'Lịch sử',
             enabled: widget.type == 3,
           ),
           _buildActionButton(
@@ -76,7 +82,7 @@ class _BottombarState extends State<Bottombar> {
               );
             },
             image: AppImages.iconnoti,
-            label: 'Cảnh báo ', // Thêm nhãn
+            label: 'Cảnh báo',
             enabled: widget.type == 4,
           ),
           _buildActionButton(
@@ -87,7 +93,7 @@ class _BottombarState extends State<Bottombar> {
               );
             },
             image: AppImages.iconsetting,
-            label: 'Cài đặt', // Thêm nhãn
+            label: 'Cài đặt',
             enabled: widget.type == 5,
           ),
         ],
@@ -103,17 +109,19 @@ class _BottombarState extends State<Bottombar> {
   }) {
     final size = MediaQuery.of(context).size;
     final pix = size.width / 375;
+
     return GestureDetector(
       onTap: onTap,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
             height: 40 * pix,
             width: 40 * pix,
             decoration: BoxDecoration(
               color: enabled
-                  ? const Color.fromARGB(255, 28, 214, 66).withOpacity(0.3)
+                  ? AppColors.primaryGreen.withOpacity(0.15)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(20),
             ),
@@ -122,20 +130,18 @@ class _BottombarState extends State<Bottombar> {
                 image,
                 width: 24 * pix,
                 height: 24 * pix,
-                color: enabled
-                    ? const Color.fromARGB(255, 10, 146, 0)
-                    : Colors.grey, // Thay đổi màu icon khi active
+                color: enabled ? AppColors.primaryGreen : AppColors.textGrey,
               ),
             ),
           ),
+          SizedBox(height: 4 * pix),
           Text(
             label,
             style: TextStyle(
               fontSize: 12 * pix,
-              color: enabled
-                  ? const Color.fromARGB(255, 10, 146, 0)
-                  : Colors.grey, // Thay đổi màu nhãn khi active
-              fontWeight: enabled ? FontWeight.bold : FontWeight.normal,
+              color: enabled ? AppColors.primaryGreen : AppColors.textGrey,
+              fontWeight: enabled ? FontWeight.w600 : FontWeight.normal,
+              fontFamily: 'BeVietnamPro',
             ),
           ),
         ],

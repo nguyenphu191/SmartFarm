@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:smart_farm/res/imagesSF/AppImages.dart';
 import 'package:smart_farm/view/detail_plant.dart';
 import 'package:smart_farm/widget/bottom_bar.dart';
@@ -135,7 +134,7 @@ class _HistoryScreenState extends State<HistoryScreen>
 
           // Main content
           Positioned(
-            top: 100 * pix,
+            top: 60 * pix,
             left: 0,
             right: 0,
             bottom: 0,

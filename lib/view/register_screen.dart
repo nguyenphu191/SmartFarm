@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:smart_farm/res/imagesSF/AppImages.dart';
+import 'package:smart_farm/theme/app_colors.dart';
 
 import 'package:smart_farm/view/login_screen.dart';
 import 'package:smart_farm/widget/top_bar.dart';
@@ -26,10 +26,10 @@ class _SignupscreenState extends State<Signupscreen> {
                 children: [
                   Container(
                     width: size.width,
-                    height: 70 * pix,
+                    height: 90 * pix,
                     padding: EdgeInsets.only(top: 10 * pix),
                     child: Text(
-                      'Bắt đầu học ngay thôi nào!',
+                      'Bắt đầu chăm sóc khu vườn của bạn!',
                       style: TextStyle(
                           fontSize: 22 * pix,
                           fontFamily: 'BeVietnamPro',
@@ -165,8 +165,15 @@ class _SignupscreenState extends State<Signupscreen> {
                   padding: EdgeInsets.only(
                       left: 16 * pix, right: 16 * pix, top: 12 * pix),
                   decoration: BoxDecoration(
-                    color: Color(0xff5B7BFE),
-                    borderRadius: BorderRadius.circular(16 * pix),
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(12 * pix),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primaryGreen.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Text('Đăng ký ',
                       style: TextStyle(
@@ -214,9 +221,10 @@ class _SignupscreenState extends State<Signupscreen> {
                     },
                     child: Text(' Đăng nhập',
                         style: TextStyle(
-                            fontSize: 14 * pix,
-                            fontFamily: 'BeVietnamPro',
-                            color: Color(0xff5B7BFE)),
+                          fontSize: 14 * pix,
+                          fontFamily: 'BeVietnamPro',
+                          color: AppColors.primaryGreen,
+                        ),
                         textAlign: TextAlign.center),
                   ),
                 ],

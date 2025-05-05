@@ -12,6 +12,7 @@ class AppImages {
   static const String salach = '${_internalImagePath}salach.png';
   static const String suhao = '${_internalImagePath}suhao.png';
   static const String sun = '${_internalImagePath}sun.png';
+  static const String may = '${_internalImagePath}may.png';
   static const String sun2 = '${_internalImagePath}sun2.png';
   static const String supno = '${_internalImagePath}supno.png';
   static const String toi = '${_internalImagePath}toi.png';

@@ -236,17 +236,13 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
             child: Container(
               width: size.width,
               height: size.height - 100 * pix,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xff47BFDF), Color(0xff4A91FF)],
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                ),
+              decoration: BoxDecoration(
+                color: const Color(0xff47BFDF).withOpacity(0.5),
               ),
             ),
           ),
           Positioned(
-            top: 120 * pix,
+            top: 80 * pix,
             left: 16 * pix,
             right: 16 * pix,
             bottom: 0,

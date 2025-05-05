@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:smart_farm/res/imagesSF/AppImages.dart';
 import 'package:smart_farm/view/detail_plant.dart';
 import 'package:smart_farm/widget/bottom_bar.dart';
+import 'package:smart_farm/theme/app_colors.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
       "name": "Khoai tây",
       "image": AppImages.khoaitay,
       "address": "Vườn 2",
-      "status": "Đang tốt",
+      "status": "Cần chú ý",
     },
     {
       "id": "3",
@@ -46,7 +47,7 @@ class _HomeScreenState extends State<HomeScreen> {
       "name": "Khoai tây",
       "image": AppImages.khoaitay,
       "address": "Vườn 5",
-      "status": "Đang tốt",
+      "status": "Có vấn đề",
     },
     {
       "id": "6",
@@ -57,7 +58,6 @@ class _HomeScreenState extends State<HomeScreen> {
     },
   ];
 
-  // Filtered plants based on search
   List<Map<String, String>> get filteredPlants {
     if (searchController.text.isEmpty) {
       return allPlants;
@@ -78,131 +78,118 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final pix = size.width / 375;
+
     return Scaffold(
-        body: Container(
-      width: size.width,
-      height: size.height,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xff47BFDF), Color(0xff4A91FF)],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
+      backgroundColor: AppColors.backgroundWhite,
+      body: Container(
+        width: size.width,
+        height: size.height,
+        decoration: BoxDecoration(
+          gradient: AppColors.backgroundGradient,
         ),
-      ),
-      child: Stack(children: [
-        Positioned(
-          top: 180 * pix,
-          left: 16 * pix,
-          right: 16 * pix,
-          bottom: 50 * pix,
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                SizedBox(
-                  height: 40 * pix,
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: TextField(
-                    controller: searchController,
-                    style: TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Tìm kiếm cây trồng',
-                      prefixIcon: Icon(Icons.search, color: Colors.white),
-                      suffixIcon: searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: Icon(Icons.clear, color: Colors.white),
-                              onPressed: () {
-                                searchController.clear();
-                                setState(() {});
-                              },
-                            )
-                          : null,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
+        child: Stack(
+          children: [
+            Positioned(
+              top: 180 * pix,
+              left: 16 * pix,
+              right: 16 * pix,
+              bottom: 50 * pix,
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    SizedBox(height: 40 * pix),
+                    // Search Bar
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16 * pix),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16 * pix),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      fillColor: Colors.white.withOpacity(0.2),
-                      filled: true,
-                      hintStyle: TextStyle(color: Colors.white),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide:
-                            BorderSide(color: Colors.white.withOpacity(0.3)),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white),
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                    ),
-                    onChanged: (value) {
-                      setState(() {});
-                    },
-                  ),
-                ),
-                filteredPlants.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(height: 50 * pix),
-                            Icon(
-                              Icons.search_off,
-                              size: 70 * pix,
-                              color: Colors.white.withOpacity(0.7),
-                            ),
-                            SizedBox(height: 16 * pix),
-                            Text(
-                              'Không tìm thấy cây trồng nào',
-                              style: TextStyle(
-                                fontSize: 18 * pix,
-                                color: Colors.white,
-                                fontFamily: 'BeVietnamPro',
-                              ),
-                            ),
-                          ],
+                      child: TextField(
+                        controller: searchController,
+                        style: TextStyle(
+                          color: AppColors.textDark,
+                          fontSize: 16 * pix,
                         ),
-                      )
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: filteredPlants.length,
-                        itemBuilder: (context, index) {
-                          final plant = filteredPlants[index];
-                          return _buildCard(
-                            name: plant['name']!,
-                            address: 'Địa chỉ: ${plant['address']}',
-                            status: 'Trạng thái: ${plant['status']}',
-                            image: plant['image']!,
-                            pix: pix,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => DetailPlantScreen(
-                                    plantid: plant['id']!,
+                        decoration: InputDecoration(
+                          hintText: 'Tìm kiếm cây trồng',
+                          hintStyle: TextStyle(color: AppColors.textGrey),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: AppColors.textGrey,
+                          ),
+                          suffixIcon: searchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: Icon(
+                                    Icons.clear,
+                                    color: AppColors.textGrey,
                                   ),
-                                ),
-                              );
-                            },
-                          );
+                                  onPressed: () {
+                                    searchController.clear();
+                                    setState(() {});
+                                  },
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16 * pix,
+                            vertical: 14 * pix,
+                          ),
+                        ),
+                        onChanged: (value) {
+                          setState(() {});
                         },
                       ),
-                SizedBox(
-                  height: 40 * pix,
+                    ),
+                    SizedBox(height: 24 * pix),
+                    // Plants List
+                    filteredPlants.isEmpty
+                        ? _buildEmptyState(pix)
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: filteredPlants.length,
+                            itemBuilder: (context, index) {
+                              final plant = filteredPlants[index];
+                              return _buildPlantCard(
+                                plant: plant,
+                                pix: pix,
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => DetailPlantScreen(
+                                        plantid: plant['id']!,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                    SizedBox(height: 40 * pix),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+            _buildHeader(size, pix),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Bottombar(type: 1),
+            ),
+          ],
         ),
-        _buildHeader(size, pix),
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: Bottombar(type: 1),
-        ),
-      ]),
-    ));
+      ),
+    );
   }
 
   Widget _buildHeader(Size size, double pix) {
@@ -213,60 +200,44 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         height: 200 * pix,
         width: size.width,
-        margin: EdgeInsets.only(bottom: 16 * pix),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color.fromARGB(255, 28, 214, 66),
-              Color.fromARGB(255, 10, 146, 0)
-            ],
-            stops: [0.2, 0.8],
-          ),
+          gradient: AppColors.primaryGradient,
           borderRadius: BorderRadius.only(
             bottomLeft: Radius.circular(30 * pix),
             bottomRight: Radius.circular(30 * pix),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              offset: const Offset(0, 10),
-              blurRadius: 20,
-              spreadRadius: -5,
+              color: Colors.black.withOpacity(0.1),
+              offset: const Offset(0, 8),
+              blurRadius: 15,
             ),
           ],
         ),
         child: Stack(
           children: [
-            // Abstract background patterns
+            // Decorative elements
             Positioned(
               top: -20 * pix,
               right: -20 * pix,
-              child: Opacity(
-                opacity: 0.1,
-                child: Container(
-                  height: 150 * pix,
-                  width: 150 * pix,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                  ),
+              child: Container(
+                height: 150 * pix,
+                width: 150 * pix,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.1),
                 ),
               ),
             ),
             Positioned(
               bottom: -60 * pix,
               left: -30 * pix,
-              child: Opacity(
-                opacity: 0.1,
-                child: Container(
-                  height: 180 * pix,
-                  width: 180 * pix,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                  ),
+              child: Container(
+                height: 180 * pix,
+                width: 180 * pix,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.08),
                 ),
               ),
             ),
@@ -278,29 +249,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: 10 * pix),
-                    Container(
-                      alignment: Alignment.centerRight,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _buildCircleIconButton(
-                            icon: Icons.menu,
-                            pix: pix,
-                            onTap: () {
-                              _showOptionsDialog(context, pix);
-                            },
-                          ),
-                          _buildCircleIconButton(
-                            icon: Icons.notifications_outlined,
-                            pix: pix,
-                            onTap: () {
-                              _showNotificationsSnackBar(context);
-                            },
-                          ),
-                        ],
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildCircleIconButton(
+                          icon: Icons.menu_rounded,
+                          pix: pix,
+                          onTap: () => _showOptionsDialog(context, pix),
+                        ),
+                        _buildCircleIconButton(
+                          icon: Icons.notifications_outlined,
+                          pix: pix,
+                          onTap: () => _showNotificationsSnackBar(context),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 10 * pix),
+                    SizedBox(height: 16 * pix),
                     Row(
                       children: [
                         Container(
@@ -315,22 +279,19 @@ class _HomeScreenState extends State<HomeScreen> {
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.2),
-                                offset: const Offset(0, 5),
-                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                                blurRadius: 8,
                               ),
                             ],
                           ),
-                          child: Hero(
-                            tag: 'profile-image',
-                            child: ClipOval(
-                              child: Image.asset(
-                                AppImages.caitim,
-                                fit: BoxFit.cover,
-                              ),
+                          child: ClipOval(
+                            child: Image.asset(
+                              AppImages.caitim,
+                              fit: BoxFit.cover,
                             ),
                           ),
                         ),
-                        SizedBox(width: 20 * pix),
+                        SizedBox(width: 16 * pix),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Text(
                                 'Duong Quoc Hoang',
                                 style: TextStyle(
-                                  fontSize: 22 * pix,
+                                  fontSize: 24 * pix,
                                   fontWeight: FontWeight.bold,
                                   fontFamily: 'BeVietnamPro',
                                   color: Colors.white,
@@ -362,7 +323,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   vertical: 6 * pix,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.25),
+                                  color: Colors.white.withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(20 * pix),
                                 ),
                                 child: Row(
@@ -373,9 +334,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                       color: Colors.white,
                                       size: 16 * pix,
                                     ),
-                                    SizedBox(width: 4 * pix),
+                                    SizedBox(width: 6 * pix),
                                     Text(
-                                      'Chúc bạn học tốt!',
+                                      'Chúc vụ mùa bội thu!',
                                       style: TextStyle(
                                         fontSize: 14 * pix,
                                         fontWeight: FontWeight.w500,
@@ -401,6 +362,191 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildEmptyState(double pix) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(height: 50 * pix),
+          Icon(
+            Icons.search_off,
+            size: 70 * pix,
+            color: Colors.white.withOpacity(0.7),
+          ),
+          SizedBox(height: 16 * pix),
+          Text(
+            'Không tìm thấy cây trồng nào',
+            style: TextStyle(
+              fontSize: 18 * pix,
+              color: Colors.white,
+              fontFamily: 'BeVietnamPro',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlantCard({
+    required Map<String, String> plant,
+    required double pix,
+    required VoidCallback onTap,
+  }) {
+    Color statusColor = AppColors.statusGood;
+    if (plant['status']!.contains('Cần chú ý')) {
+      statusColor = AppColors.statusWarning;
+    } else if (plant['status']!.contains('Có vấn đề')) {
+      statusColor = AppColors.statusDanger;
+    }
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: EdgeInsets.only(bottom: 16 * pix),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              offset: const Offset(0, 4),
+              blurRadius: 10,
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: EdgeInsets.all(16 * pix),
+          child: Row(
+            children: [
+              Container(
+                height: 80 * pix,
+                width: 80 * pix,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12 * pix),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      offset: const Offset(0, 2),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: Image.asset(
+                  plant['image']!,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              SizedBox(width: 16 * pix),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      plant['name']!,
+                      style: TextStyle(
+                        fontSize: 18 * pix,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'BeVietnamPro',
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    SizedBox(height: 6 * pix),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 16 * pix,
+                          color: AppColors.textGrey,
+                        ),
+                        SizedBox(width: 4 * pix),
+                        Text(
+                          plant['address']!,
+                          style: TextStyle(
+                            fontSize: 14 * pix,
+                            fontFamily: 'BeVietnamPro',
+                            color: AppColors.textGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8 * pix),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 10 * pix,
+                        vertical: 4 * pix,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12 * pix),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 8 * pix,
+                            height: 8 * pix,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: statusColor,
+                            ),
+                          ),
+                          SizedBox(width: 6 * pix),
+                          Text(
+                            plant['status']!,
+                            style: TextStyle(
+                              fontSize: 13 * pix,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'BeVietnamPro',
+                              color: statusColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 18 * pix,
+                color: AppColors.textGrey,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCircleIconButton({
+    required IconData icon,
+    required double pix,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.white.withOpacity(0.15),
+      borderRadius: BorderRadius.circular(20 * pix),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20 * pix),
+        child: Container(
+          height: 40 * pix,
+          width: 40 * pix,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 24 * pix,
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showOptionsDialog(BuildContext context, double pix) {
     showDialog(
       context: context,
@@ -408,59 +554,56 @@ class _HomeScreenState extends State<HomeScreen> {
         return AlertDialog(
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
           title: Text(
             "Tuỳ chọn",
             style: TextStyle(
-              fontSize: 18 * pix,
+              fontSize: 20 * pix,
               fontWeight: FontWeight.bold,
               fontFamily: 'BeVietnamPro',
+              color: AppColors.textDark,
             ),
           ),
-          content: Container(
-            height: 200 * pix,
-            width: 300 * pix,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDialogOption(
-                  context: context,
-                  icon: Icons.add,
-                  title: 'Thêm cây mới',
-                  pix: pix,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => DetailPlantScreen(plantid: ''),
-                      ),
-                    );
-                  },
-                ),
-                _buildDialogOption(
-                  context: context,
-                  icon: Icons.help,
-                  title: 'Trợ giúp',
-                  pix: pix,
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showHelpBottomSheet(context, pix);
-                  },
-                ),
-                _buildDialogOption(
-                  context: context,
-                  icon: Icons.logout,
-                  title: 'Đăng xuất',
-                  pix: pix,
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showLogoutConfirmation(context, pix);
-                  },
-                ),
-              ],
-            ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDialogOption(
+                context: context,
+                icon: Icons.add_circle_outline,
+                title: 'Thêm cây mới',
+                pix: pix,
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DetailPlantScreen(plantid: ''),
+                    ),
+                  );
+                },
+              ),
+              _buildDialogOption(
+                context: context,
+                icon: Icons.help_outline,
+                title: 'Trợ giúp',
+                pix: pix,
+                onTap: () {
+                  Navigator.pop(context);
+                  _showHelpBottomSheet(context, pix);
+                },
+              ),
+              _buildDialogOption(
+                context: context,
+                icon: Icons.logout,
+                title: 'Đăng xuất',
+                pix: pix,
+                onTap: () {
+                  Navigator.pop(context);
+                  _showLogoutConfirmation(context, pix);
+                },
+              ),
+            ],
           ),
         );
       },
@@ -474,24 +617,41 @@ class _HomeScreenState extends State<HomeScreen> {
     required double pix,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      leading: Container(
-        padding: EdgeInsets.all(8 * pix),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8 * pix),
-        ),
-        child: Icon(icon, color: Colors.green),
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 16 * pix,
-          fontWeight: FontWeight.w500,
-          fontFamily: 'BeVietnamPro',
-        ),
-      ),
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(12 * pix),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: 16 * pix,
+          vertical: 12 * pix,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(8 * pix),
+              decoration: BoxDecoration(
+                color: AppColors.primaryGreen.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12 * pix),
+              ),
+              child: Icon(
+                icon,
+                color: AppColors.primaryGreen,
+                size: 24 * pix,
+              ),
+            ),
+            SizedBox(width: 16 * pix),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 16 * pix,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'BeVietnamPro',
+                color: AppColors.textDark,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -499,11 +659,12 @@ class _HomeScreenState extends State<HomeScreen> {
     showModalBottomSheet(
       context: context,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20 * pix)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24 * pix)),
       ),
+      backgroundColor: Colors.white,
       builder: (context) {
         return Container(
-          padding: EdgeInsets.all(20 * pix),
+          padding: EdgeInsets.all(24 * pix),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -511,12 +672,13 @@ class _HomeScreenState extends State<HomeScreen> {
               Text(
                 'Trợ giúp',
                 style: TextStyle(
-                  fontSize: 20 * pix,
+                  fontSize: 24 * pix,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'BeVietnamPro',
+                  color: AppColors.textDark,
                 ),
               ),
-              SizedBox(height: 16 * pix),
+              SizedBox(height: 20 * pix),
               _buildHelpItem(
                 icon: Icons.search,
                 title: 'Tìm kiếm cây trồng',
@@ -535,16 +697,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 description: 'Nhấn vào một cây trồng bất kỳ để xem chi tiết',
                 pix: pix,
               ),
-              SizedBox(height: 16 * pix),
+              SizedBox(height: 20 * pix),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
+                  onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: EdgeInsets.symmetric(vertical: 12 * pix),
+                    backgroundColor: AppColors.primaryGreen,
+                    padding: EdgeInsets.symmetric(vertical: 14 * pix),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12 * pix),
                     ),
@@ -574,17 +734,21 @@ class _HomeScreenState extends State<HomeScreen> {
     required double pix,
   }) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 16 * pix),
+      padding: EdgeInsets.only(bottom: 20 * pix),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             padding: EdgeInsets.all(10 * pix),
             decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10 * pix),
+              color: AppColors.primaryGreen.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12 * pix),
             ),
-            child: Icon(icon, color: Colors.green),
+            child: Icon(
+              icon,
+              color: AppColors.primaryGreen,
+              size: 24 * pix,
+            ),
           ),
           SizedBox(width: 16 * pix),
           Expanded(
@@ -597,6 +761,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     fontSize: 16 * pix,
                     fontWeight: FontWeight.bold,
                     fontFamily: 'BeVietnamPro',
+                    color: AppColors.textDark,
                   ),
                 ),
                 SizedBox(height: 4 * pix),
@@ -604,7 +769,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   description,
                   style: TextStyle(
                     fontSize: 14 * pix,
-                    color: Colors.black.withOpacity(0.6),
+                    color: AppColors.textGrey,
                     fontFamily: 'BeVietnamPro',
                   ),
                 ),
@@ -622,12 +787,12 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
           title: Text(
             'Xác nhận đăng xuất',
             style: TextStyle(
-              fontSize: 18 * pix,
+              fontSize: 20 * pix,
               fontWeight: FontWeight.bold,
               fontFamily: 'BeVietnamPro',
             ),
@@ -641,15 +806,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
+              onPressed: () => Navigator.pop(context),
               child: Text(
                 'Hủy',
                 style: TextStyle(
                   fontSize: 16 * pix,
                   fontFamily: 'BeVietnamPro',
-                  color: Colors.grey,
+                  color: AppColors.textGrey,
                 ),
               ),
             ),
@@ -660,14 +823,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('Đã đăng xuất'),
-                    backgroundColor: Colors.green,
+                    backgroundColor: AppColors.primaryGreen,
                   ),
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: AppColors.primaryGreen,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8 * pix),
+                  borderRadius: BorderRadius.circular(12 * pix),
                 ),
               ),
               child: Text(
@@ -689,11 +852,11 @@ class _HomeScreenState extends State<HomeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Không có thông báo mới'),
-        backgroundColor: Colors.green,
+        backgroundColor: AppColors.primaryGreen,
         behavior: SnackBarBehavior.floating,
         margin: EdgeInsets.fromLTRB(20, 0, 20, 60),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
         ),
         action: SnackBarAction(
           label: 'Đóng',
@@ -701,166 +864,6 @@ class _HomeScreenState extends State<HomeScreen> {
           onPressed: () {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
           },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCircleIconButton({
-    required IconData icon,
-    required double pix,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20 * pix),
-      child: Container(
-        height: 40 * pix,
-        width: 40 * pix,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white24,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 5,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Icon(
-          icon,
-          color: Colors.white,
-          size: 22 * pix,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCard({
-    required String name,
-    required String address,
-    required String status,
-    required String image,
-    required double pix,
-    required VoidCallback onTap,
-  }) {
-    // Determine status color
-    Color statusColor = Colors.green;
-    if (status.contains('Đang tốt')) {
-      statusColor = Colors.green;
-    } else if (status.contains('Cần chú ý')) {
-      statusColor = Colors.orange;
-    } else if (status.contains('Có vấn đề')) {
-      statusColor = Colors.red;
-    }
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        height: 126 * pix,
-        width: 333 * pix,
-        padding: EdgeInsets.all(16 * pix),
-        margin: EdgeInsets.only(bottom: 16 * pix),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              offset: const Offset(0, 5),
-              blurRadius: 10,
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Hero(
-              tag: 'plant-image-${image}',
-              child: Container(
-                height: 94 * pix,
-                width: 94 * pix,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12 * pix),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      offset: const Offset(0, 3),
-                      blurRadius: 6,
-                    ),
-                  ],
-                ),
-                clipBehavior: Clip.hardEdge,
-                child: Image.asset(
-                  image,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-            SizedBox(width: 16 * pix),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          name,
-                          style: TextStyle(
-                            fontSize: 18 * pix,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'BeVietnamPro',
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16 * pix,
-                        color: Colors.grey,
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 8 * pix),
-                  Text(
-                    address,
-                    style: TextStyle(
-                      fontSize: 14 * pix,
-                      fontWeight: FontWeight.normal,
-                      fontFamily: 'BeVietnamPro',
-                      color: Colors.black.withOpacity(0.6),
-                    ),
-                  ),
-                  SizedBox(height: 8 * pix),
-                  Row(
-                    children: [
-                      Container(
-                        width: 10 * pix,
-                        height: 10 * pix,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: statusColor,
-                        ),
-                      ),
-                      SizedBox(width: 4 * pix),
-                      Text(
-                        status,
-                        style: TextStyle(
-                          fontSize: 14 * pix,
-                          fontWeight: FontWeight.w500,
-                          fontFamily: 'BeVietnamPro',
-                          color: statusColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
         ),
       ),
     );

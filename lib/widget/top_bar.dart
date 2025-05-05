@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:smart_farm/theme/app_colors.dart';
 
 class TopBar extends StatefulWidget {
   const TopBar({super.key, required this.title, this.isBack = true});
@@ -14,50 +15,58 @@ class _TopBarState extends State<TopBar> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final pix = size.width / 375;
+
     return Container(
       height: 70 * pix,
       width: size.width,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color.fromARGB(255, 28, 214, 66),
-            Color.fromARGB(255, 10, 146, 0)
-          ],
-        ),
+      decoration: BoxDecoration(
+        gradient: AppColors.primaryGradient,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Container(
-            width: pix * 50,
-            margin: EdgeInsets.only(top: 0 * pix),
-            child: widget.isBack
-                ? IconButton(
+          widget.isBack
+              ? Container(
+                  width: pix * 50,
+                  margin: EdgeInsets.only(top: 0 * pix),
+                  child: IconButton(
                     onPressed: () {
                       Navigator.pop(context);
                     },
-                    icon: Icon(
-                      Icons.arrow_back_ios,
-                      color: Colors.white,
+                    icon: Container(
+                      padding: EdgeInsets.all(0 * pix),
+                      child: Icon(
+                        Icons.arrow_back_ios_new,
+                        color: Colors.white,
+                        size: 20 * pix,
+                      ),
                     ),
-                  )
-                : SizedBox(),
-          ),
-          Container(
-            width: size.width - 100 * pix,
-            height: 60 * pix,
-            padding: EdgeInsets.only(top: 16 * pix),
-            child: Text(
-              '${widget.title}',
-              style: TextStyle(
+                  ))
+              : const SizedBox(),
+          Expanded(
+            child: Container(
+              height: 70 * pix,
+              padding: EdgeInsets.only(top: 16 * pix),
+              child: Text(
+                widget.title,
+                style: TextStyle(
                   color: Colors.white,
-                  fontSize: 20 * pix,
+                  fontSize: 24 * pix,
                   fontWeight: FontWeight.w600,
-                  fontFamily: 'BeVietnamPro'),
-              textAlign: TextAlign.center,
+                  fontFamily: 'BeVietnamPro',
+                  letterSpacing: 0.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
+          SizedBox(width: widget.isBack ? 50 * pix : 0),
         ],
       ),
     );

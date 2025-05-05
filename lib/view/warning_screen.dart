@@ -168,11 +168,7 @@ class _WarningScreenState extends State<WarningScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Align(
-                          alignment: Alignment.topRight
-                          
-                          
-                          
-                          ,
+                          alignment: Alignment.topRight,
                           child: _buildActionButton(
                             icon: Icons.settings,
                             label: 'Cài đặt',

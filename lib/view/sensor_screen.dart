@@ -24,12 +24,13 @@ class _SensorScreenState extends State<SensorScreen>
 
   // MQTT Client
   late MqttServerClient client;
-  final String broker = '103.6.234.189'; // IP của Mosquitto server
+  final String broker = '192.168.0.103'; // IP của Mosquitto server local
   final int port = 1883;
   final String clientIdentifier =
       'smart_farm_flutter_${DateTime.now().millisecondsSinceEpoch}';
-  final String username = 'admin'; // Username
-  final String password = 'admin'; // Password
+  final String username = 'phu'; // Username
+  final String password = '123456'; // Password
+  final String mainTopic = 'sensor/data'; // Topic chính để subscribe
 
   bool isConnected = false;
   bool isConnecting = false;
@@ -39,51 +40,45 @@ class _SensorScreenState extends State<SensorScreen>
 
   // Thêm biến để lưu trữ các message nhận được theo topic
   Map<String, List<String>> topicMessages = {};
-  final int maxStoredMessages =
-      10; // Số lượng tối đa tin nhắn lưu trữ cho mỗi topic
+  final int maxStoredMessages = 20; // Số lượng tin nhắn lưu trữ
 
-  // Danh sách các khu vườn (dữ liệu cứng ban đầu)
+  // Thêm biến để lưu trữ lịch sử dữ liệu chi tiết
+  Map<String, List<Map<String, dynamic>>> sensorDataHistory = {};
+  final int maxHistoryEntries = 50; // Số lượng mục lưu trữ tối đa
+
+  // Danh sách các khu vườn (chỉ giữ cấu trúc, dữ liệu sẽ được cập nhật từ MQTT)
   List<Map<String, dynamic>> gardens = [
     {
       'id': 'garden_a',
       'name': 'Vườn A',
-      'weather': 'Nắng',
+      'weather': 'Đang cập nhật...',
       'image': AppImages.mua,
-      'temperature': 34,
-      'wind': 10,
-      'humidity': 54,
-      'light': 500,
-      'soilMoisture': 42,
-      'historyTemp': [28, 30, 32, 34, 33, 31, 29],
-      'historyHumidity': [60, 58, 55, 54, 53, 56, 58],
+      'temperature': 0,
+      'humidity': 0,
+      'light': 0,
+      'soilMoisture': 0,
       'lastUpdated': null,
     },
     {
       'id': 'garden_b',
       'name': 'Vườn B',
-      'weather': 'Mưa nhẹ',
+      'weather': 'Đang cập nhật...',
       'image': AppImages.mua,
-      'temperature': 28,
-      'wind': 15,
-      'humidity': 78,
-      'light': 320,
-      'soilMoisture': 68,
-      'historyTemp': [26, 27, 28, 28, 29, 28, 27],
-      'historyHumidity': [72, 75, 78, 80, 79, 78, 78],
+      'temperature': 0,
+      'humidity': 0,
+      'light': 0,
+      'soilMoisture': 0,
       'lastUpdated': null,
     },
     {
       'id': 'garden_c',
       'name': 'Vườn C',
-      'weather': 'Nhiều mây',
+      'weather': 'Đang cập nhật...',
       'image': AppImages.mua,
-      'temperature': 31,
-      'wind': 8,
-      'humidity': 62,
-      'light': 420,
-      'soilMoisture': 55,
-      'historyTemp': [29, 30, 31, 32, 31, 30, 31],
-      'historyHumidity': [65, 63, 62, 60, 61, 62, 62],
+      'temperature': 0,
+      'humidity': 0,
+      'light': 0,
+      'soilMoisture': 0,
       'lastUpdated': null,
     },
   ];
@@ -217,11 +212,20 @@ class _SensorScreenState extends State<SensorScreen>
       connectionStatus = 'Đã kết nối';
     });
 
-    // Subscribe tới các topic
-    _subscribeToTopics();
+    // Subscribe tới topic
+    _subscribeToTopic();
 
     // Bắt đầu lắng nghe messages
     mqttSubscription = client.updates?.listen(_onMessage);
+
+    // Hiển thị thông báo kết nối thành công
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Đã kết nối tới MQTT broker tại $broker:$port'),
+        backgroundColor: AppColors.statusGood,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   void _onDisconnected() {
@@ -246,183 +250,160 @@ class _SensorScreenState extends State<SensorScreen>
     }
   }
 
-  void _subscribeToTopics() {
-    // Subscribe tới topic của từng vườn
-    for (var garden in gardens) {
-      String topic = 'smart_farm/${garden['id']}/sensor_data';
-      client.subscribe(topic, MqttQos.atLeastOnce);
+  void _subscribeToTopic() {
+    // Subscribe tới topic chính
+    client.subscribe(mainTopic, MqttQos.atLeastOnce);
+
+    if (kDebugMode) {
+      print('Đã đăng ký nhận dữ liệu từ topic: $mainTopic');
     }
 
-    // Subscribe tới topic thời tiết chung
-    client.subscribe('smart_farm/weather', MqttQos.atLeastOnce);
-
-    // Subscribe tới topic alerts
-    client.subscribe('smart_farm/alerts', MqttQos.atLeastOnce);
+    // Hiển thị thông báo đã đăng ký nhận dữ liệu
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Đã đăng ký nhận dữ liệu từ topic: $mainTopic'),
+        backgroundColor: AppColors.statusGood,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   void _onMessage(List<MqttReceivedMessage<MqttMessage>> event) {
-    final MqttPublishMessage recMess = event[0].payload as MqttPublishMessage;
-    final String message =
-        MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
-    final String topic = event[0].topic;
-
-    // Lưu message vào danh sách theo topic
-    setState(() {
-      if (!topicMessages.containsKey(topic)) {
-        topicMessages[topic] = [];
-      }
-
-      // Thêm thông tin thời gian vào message
-      final now = DateTime.now();
-      final timeStr = DateFormat('HH:mm:ss').format(now);
-      final logMessage = "[$timeStr] $message";
-
-      // Thêm vào đầu danh sách (hiển thị mới nhất trước)
-      topicMessages[topic]!.insert(0, logMessage);
-
-      // Giới hạn số lượng message lưu trữ
-      if (topicMessages[topic]!.length > maxStoredMessages) {
-        topicMessages[topic]!.removeLast();
-      }
-    });
-
-    if (kDebugMode) {
-      print('Nhận message từ topic $topic: $message');
-    }
-
     try {
-      final data = json.decode(message);
+      final MqttPublishMessage recMess = event[0].payload as MqttPublishMessage;
+      final String message =
+          MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
+      final String topic = event[0].topic;
 
-      if (topic.contains('/sensor_data')) {
-        // Xử lý dữ liệu cảm biến từng vườn
-        _updateGardenData(topic, data);
-      } else if (topic == 'smart_farm/weather') {
-        // Xử lý dữ liệu thời tiết chung
-        _updateWeatherData(data);
-      } else if (topic == 'smart_farm/alerts') {
-        // Xử lý thông báo cảnh báo
-        _showAlert(data);
+      // Lưu message vào danh sách theo topic
+      setState(() {
+        if (!topicMessages.containsKey(topic)) {
+          topicMessages[topic] = [];
+        }
+
+        // Thêm thông tin thời gian vào message
+        final now = DateTime.now();
+        final timeStr = DateFormat('HH:mm:ss').format(now);
+        final logMessage = "[$timeStr] $message";
+
+        // Thêm vào đầu danh sách (hiển thị mới nhất trước)
+        topicMessages[topic]!.insert(0, logMessage);
+
+        // Giới hạn số lượng message lưu trữ
+        if (topicMessages[topic]!.length > maxStoredMessages) {
+          topicMessages[topic]!.removeLast();
+        }
+      });
+
+      if (kDebugMode) {
+        print('Nhận message từ topic $topic: $message');
+      }
+
+      // Xử lý dữ liệu từ topic chính
+      if (topic == mainTopic) {
+        try {
+          final data = json.decode(message);
+          // Cập nhật dữ liệu cho tất cả các vườn
+          _updateAllGardens(data);
+        } catch (e) {
+          if (kDebugMode) {
+            print('Lỗi parse message từ topic $topic: $e');
+          }
+        }
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Lỗi parse message: $e');
+        print('Lỗi xử lý message MQTT: $e');
       }
     }
   }
 
-  void _updateGardenData(String topic, Map<String, dynamic> data) {
-    String gardenId = '';
+  // Cập nhật dữ liệu cho tất cả các vườn từ một nguồn dữ liệu
+  void _updateAllGardens(Map<String, dynamic> data) {
+    final now = DateTime.now();
 
-    // Trích xuất ID vườn từ topic
-    for (var garden in gardens) {
-      if (topic.contains(garden['id'])) {
-        gardenId = garden['id'];
-        break;
+    // Kiểm tra các trường dữ liệu cần thiết
+    if (!data.containsKey('nhietdo') ||
+        !data.containsKey('doam') ||
+        !data.containsKey('anhsang')) {
+      if (kDebugMode) {
+        print('Dữ liệu không hợp lệ: $data');
       }
+      return;
     }
 
-    if (gardenId.isNotEmpty) {
-      setState(() {
-        // Tìm và cập nhật dữ liệu cho vườn tương ứng
-        for (var i = 0; i < gardens.length; i++) {
-          if (gardens[i]['id'] == gardenId) {
-            // Cập nhật dữ liệu sensor
-            if (data.containsKey('temperature'))
-              gardens[i]['temperature'] = data['temperature'];
-            if (data.containsKey('humidity'))
-              gardens[i]['humidity'] = data['humidity'];
-            if (data.containsKey('wind')) gardens[i]['wind'] = data['wind'];
-            if (data.containsKey('light')) gardens[i]['light'] = data['light'];
-            if (data.containsKey('soilMoisture'))
-              gardens[i]['soilMoisture'] = data['soilMoisture'];
-
-            // Cập nhật lịch sử
-            if (data.containsKey('temperature')) {
-              List<dynamic> tempHistory = List.from(gardens[i]['historyTemp']);
-              tempHistory.removeAt(0);
-              tempHistory.add(data['temperature']);
-              gardens[i]['historyTemp'] = tempHistory;
-            }
-
-            if (data.containsKey('humidity')) {
-              List<dynamic> humidityHistory =
-                  List.from(gardens[i]['historyHumidity']);
-              humidityHistory.removeAt(0);
-              humidityHistory.add(data['humidity']);
-              gardens[i]['historyHumidity'] = humidityHistory;
-            }
-
-            // Cập nhật thời gian cập nhật cuối
-            gardens[i]['lastUpdated'] = DateTime.now();
-            break;
-          }
-        }
-      });
+    // Debug log - in dữ liệu nhận được để kiểm tra
+    if (kDebugMode) {
+      print('Đang cập nhật dữ liệu vườn với dữ liệu MQTT: $data');
     }
-  }
 
-  void _updateWeatherData(Map<String, dynamic> data) {
     setState(() {
-      // Cập nhật thông tin thời tiết cho từng vườn nếu có
       for (var i = 0; i < gardens.length; i++) {
-        String gardenId = gardens[i]['id'];
-        if (data.containsKey(gardenId) &&
-            data[gardenId] is Map &&
-            data[gardenId].containsKey('weather')) {
-          gardens[i]['weather'] = data[gardenId]['weather'];
+        // Lấy trực tiếp giá trị từ dữ liệu MQTT, không qua xử lý
+        final temperature = (data['nhietdo'] as num).toDouble();
+        final humidity = (data['doam'] as num).toDouble();
+        final light = (data['anhsang'] as num).toDouble();
 
-          // Cập nhật hình ảnh thời tiết tương ứng (có thể mở rộng thêm)
-          _updateWeatherImage(i);
+        // Lấy độ ẩm đất nếu có, nếu không dùng giá trị mặc định
+        final soilMoisture = data.containsKey('doamdat')
+            ? (data['doamdat'] as num).toDouble()
+            : 50.0;
+
+        // Dự đoán thời tiết dựa trên các giá trị nhận được
+        final weatherCondition = duDoanThoiTiet(
+          nhietDo: temperature,
+          doAm: humidity,
+          anhSang: light,
+        );
+
+        // Cập nhật trực tiếp dữ liệu cho vườn
+        gardens[i]['temperature'] = temperature.round();
+        gardens[i]['humidity'] = humidity.round();
+        gardens[i]['light'] = light.round();
+        gardens[i]['soilMoisture'] = soilMoisture.round();
+        gardens[i]['weather'] = weatherCondition;
+        gardens[i]['lastUpdated'] = now; // Cập nhật thời gian
+
+        // // Log để kiểm tra
+        // if (kDebugMode && i == 0) {
+        //   print('Vườn ${gardens[i]['name']} sau khi cập nhật: '
+        //       'nhiệt độ=${gardens[i]['temperature']}, '
+        //       'độ ẩm=${gardens[i]['humidity']}, '
+        //       'ánh sáng=${gardens[i]['light']}, '
+        //       'độ ẩm đất=${gardens[i]['soilMoisture']}');
+        // }
+
+        // Cập nhật lịch sử (nếu cần)
+        // Bạn có thể giữ lại hoặc bỏ phần này nếu không quan tâm đến lịch sử
+        final historyKey = '${gardens[i]['id']}/sensor_data';
+
+        if (!sensorDataHistory.containsKey(historyKey)) {
+          sensorDataHistory[historyKey] = [];
+        }
+
+        // Lưu trữ dữ liệu hiện tại vào lịch sử
+        Map<String, dynamic> entryWithTimestamp = {
+          'temperature': temperature.round(),
+          'humidity': humidity.round(),
+          'light': light.round(),
+          'soilMoisture': soilMoisture.round(),
+          'timestamp': now.millisecondsSinceEpoch,
+        };
+
+        sensorDataHistory[historyKey]!.add(entryWithTimestamp);
+
+        if (sensorDataHistory[historyKey]!.length > maxHistoryEntries) {
+          sensorDataHistory[historyKey]!.removeAt(0);
         }
       }
     });
-  }
-
-  void _updateWeatherImage(int gardenIndex) {
-    // Thay đổi hình ảnh thời tiết dựa vào điều kiện thời tiết
-    // Hiện tại chưa có nhiều icon thời tiết, dùng mặc định
-  }
-
-  void _showAlert(Map<String, dynamic> data) {
-    // Hiển thị cảnh báo từ server
-    if (data.containsKey('message') && data.containsKey('level')) {
-      String message = data['message'];
-      String level = data['level'].toString().toLowerCase();
-
-      Color backgroundColor;
-      switch (level) {
-        case 'warning':
-          backgroundColor = AppColors.statusWarning;
-          break;
-        case 'danger':
-          backgroundColor = AppColors.statusDanger;
-          break;
-        default:
-          backgroundColor = AppColors.primaryBlue;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: backgroundColor,
-          duration: Duration(seconds: 5),
-          action: SnackBarAction(
-            label: 'Đóng',
-            textColor: Colors.white,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
-          ),
-        ),
-      );
-    }
   }
 
   void _showConnectionError() {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Không thể kết nối tới server MQTT'),
+          content: Text('Không thể kết nối tới MQTT broker tại $broker:$port'),
           backgroundColor: AppColors.statusDanger,
           duration: Duration(seconds: 3),
           action: SnackBarAction(
@@ -455,6 +436,35 @@ class _SensorScreenState extends State<SensorScreen>
     }
 
     super.dispose();
+  }
+
+  String duDoanThoiTiet({
+    required double nhietDo,
+    required double doAm,
+    required double anhSang,
+  }) {
+    if (doAm > 80 && anhSang < 100) {
+      return "Mưa";
+    } else if (anhSang > 600 && nhietDo > 30 && doAm < 60) {
+      return "Nắng";
+    } else if (anhSang >= 200 && anhSang <= 600 && doAm >= 60) {
+      return "Nhiều mây";
+    } else {
+      return "Nhiều mây";
+    }
+  }
+
+  String image(String type) {
+    switch (type) {
+      case 'Mưa':
+        return AppImages.mua;
+      case 'Nắng':
+        return AppImages.sun;
+      case 'Nhiều mây':
+        return AppImages.may;
+      default:
+        return AppImages.sun;
+    }
   }
 
   @override
@@ -493,7 +503,7 @@ class _SensorScreenState extends State<SensorScreen>
 
                     // Main weather page view
                     Container(
-                      height: 560 * pix,
+                      height: 520 * pix,
                       width: size.width,
                       child: PageView.builder(
                         itemCount: gardens.length,
@@ -515,7 +525,7 @@ class _SensorScreenState extends State<SensorScreen>
                               left: 5 * pix,
                               right: 5 * pix,
                             ),
-                            child: _buildWeatherCard(
+                            child: _buildWeatherCardWithHistoryButton(
                               context: context,
                               garden: gardens[index],
                             ),
@@ -526,6 +536,7 @@ class _SensorScreenState extends State<SensorScreen>
 
                     // Connection indicator
                     _buildConnectionStatus(pix),
+
                     SizedBox(height: 96 * pix),
                   ],
                 ),
@@ -565,14 +576,35 @@ class _SensorScreenState extends State<SensorScreen>
             ),
           ),
           SizedBox(width: 8 * pix),
-          Text(
-            connectionStatus,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 12 * pix,
-              fontWeight: FontWeight.w500,
-              fontFamily: 'BeVietnamPro',
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                connectionStatus,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12 * pix,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'BeVietnamPro',
+                ),
+              ),
+              Text(
+                'Broker: $broker:$port ',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 10 * pix,
+                  fontFamily: 'BeVietnamPro',
+                ),
+              ),
+              Text(
+                'Topic: $mainTopic',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 10 * pix,
+                  fontFamily: 'BeVietnamPro',
+                ),
+              )
+            ],
           ),
           if (!isConnected && !isConnecting) ...[
             SizedBox(width: 8 * pix),
@@ -586,137 +618,245 @@ class _SensorScreenState extends State<SensorScreen>
             ),
           ],
           Spacer(),
-          // Thêm nút debug
-          GestureDetector(
-            onTap: () => _showDebugDialog(context),
-            child: Container(
-              padding:
-                  EdgeInsets.symmetric(horizontal: 10 * pix, vertical: 4 * pix),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(16 * pix),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.bug_report,
-                    color: Colors.white,
-                    size: 16 * pix,
-                  ),
-                  SizedBox(width: 4 * pix),
-                  Text(
-                    'Debug',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12 * pix,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: 'BeVietnamPro',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          // Cải tiến nút debug
+          _buildDebugButton(pix),
         ],
       ),
     );
   }
 
-  // 4. Hàm hiển thị dialog debug
-  void _showDebugDialog(BuildContext context) {
+  // Nút debug cải tiến
+  Widget _buildDebugButton(double pix) {
+    return GestureDetector(
+      onTap: () => _showEnhancedDebugDialog(context),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 10 * pix, vertical: 4 * pix),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(16 * pix),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.bug_report,
+              color: Colors.white,
+              size: 16 * pix,
+            ),
+            SizedBox(width: 4 * pix),
+            Text(
+              'MQTT Monitor',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12 * pix,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'BeVietnamPro',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Dialog debug nâng cao
+  void _showEnhancedDebugDialog(BuildContext context) {
     final pix = MediaQuery.of(context).size.width / 375;
+    String searchFilter = '';
 
     showDialog(
       context: context,
       builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16 * pix),
-          ),
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.9,
-            height: MediaQuery.of(context).size.height * 0.8,
-            padding: EdgeInsets.all(16 * pix),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'MQTT Debug',
-                      style: TextStyle(
-                        fontSize: 20 * pix,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'BeVietnamPro',
+        return StatefulBuilder(builder: (context, setState) {
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16 * pix),
+            ),
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.9,
+              height: MediaQuery.of(context).size.height * 0.8,
+              padding: EdgeInsets.all(16 * pix),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'MQTT Monitor',
+                        style: TextStyle(
+                          fontSize: 20 * pix,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'BeVietnamPro',
+                        ),
                       ),
+                      IconButton(
+                        icon: Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+
+                  // Thêm trường tìm kiếm
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8 * pix),
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Tìm kiếm thông tin...',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8 * pix),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          searchFilter = value;
+                        });
+                      },
                     ),
-                    IconButton(
-                      icon: Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
+                  ),
+
+                  // Thông tin kết nối
+                  Container(
+                    padding: EdgeInsets.all(8 * pix),
+                    decoration: BoxDecoration(
+                      color: isConnected
+                          ? AppColors.statusGood.withOpacity(0.1)
+                          : AppColors.statusDanger.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8 * pix),
                     ),
-                  ],
-                ),
-                SizedBox(height: 16 * pix),
-                Expanded(
-                  child: topicMessages.isEmpty
-                      ? Center(
-                          child: Text('Chưa có dữ liệu nhận được từ MQTT.'))
-                      : DefaultTabController(
-                          length: topicMessages.keys.length,
-                          child: Column(
-                            children: [
-                              TabBar(
-                                isScrollable: true,
-                                labelColor: AppColors.primaryGreen,
-                                unselectedLabelColor: Colors.grey,
-                                tabs: topicMessages.keys.map((topic) {
-                                  // Hiển thị tên topic ngắn gọn
-                                  String displayTopic = topic.split('/').last;
-                                  return Tab(
-                                    text: displayTopic,
-                                  );
-                                }).toList(),
-                              ),
-                              Expanded(
-                                child: TabBarView(
-                                  children: topicMessages.keys.map((topic) {
-                                    return _buildTopicMessagesList(topic, pix);
-                                  }).toList(),
-                                ),
-                              ),
-                            ],
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 8 * pix,
+                          height: 8 * pix,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isConnected
+                                ? AppColors.statusGood
+                                : AppColors.statusDanger,
                           ),
                         ),
-                ),
-                SizedBox(height: 16 * pix),
-                // Thêm nút gửi message MQTT test
-                ElevatedButton(
-                  onPressed: () => _publishTestMessage(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryGreen,
-                  ),
-                  child: Text(
-                    'Gửi message test',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontFamily: 'BeVietnamPro',
+                        SizedBox(width: 8 * pix),
+                        Text(
+                          'Broker: $broker:$port ',
+                          style: TextStyle(
+                            fontSize: 14 * pix,
+                            fontFamily: 'BeVietnamPro',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+
+                  SizedBox(height: 8 * pix),
+
+                  // Content area
+                  Expanded(
+                    child: topicMessages.isEmpty
+                        ? Center(
+                            child: Text('Chưa có dữ liệu nhận được từ MQTT.'))
+                        : DefaultTabController(
+                            length: topicMessages.keys.length,
+                            child: Column(
+                              children: [
+                                TabBar(
+                                  isScrollable: true,
+                                  labelColor: AppColors.primaryGreen,
+                                  unselectedLabelColor: Colors.grey,
+                                  tabs: topicMessages.keys.map((topic) {
+                                    String displayTopic = topic.split('/').last;
+                                    return Tab(
+                                      text: displayTopic,
+                                    );
+                                  }).toList(),
+                                ),
+                                Expanded(
+                                  child: TabBarView(
+                                    children: topicMessages.keys.map((topic) {
+                                      // Lọc message theo searchFilter
+                                      List<String> filteredMessages =
+                                          searchFilter.isEmpty
+                                              ? topicMessages[topic]!
+                                              : topicMessages[topic]!
+                                                  .where((msg) => msg
+                                                      .toLowerCase()
+                                                      .contains(searchFilter
+                                                          .toLowerCase()))
+                                                  .toList();
+
+                                      return _buildTopicMessagesList(
+                                          topic, pix, filteredMessages);
+                                    }).toList(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                  ),
+
+                  SizedBox(height: 16 * pix),
+
+                  // Action buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              topicMessages.clear();
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.textGrey,
+                          ),
+                          child: Text(
+                            'Xóa logs',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'BeVietnamPro',
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8 * pix),
+                      Expanded(
+                        flex: 1,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            _reconnect();
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primaryGreen,
+                          ),
+                          child: Text(
+                            'Kết nối lại',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'BeVietnamPro',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
+          );
+        });
       },
     );
   }
 
-  // 5. Hàm hiển thị danh sách message cho một topic
-  Widget _buildTopicMessagesList(String topic, double pix) {
-    if (topicMessages[topic]?.isEmpty ?? true) {
+  // Hiển thị danh sách message
+  Widget _buildTopicMessagesList(
+      String topic, double pix, List<String> messages) {
+    if (messages.isEmpty) {
       return Center(
         child: Text(
-          'Chưa có dữ liệu',
+          'Không có dữ liệu phù hợp',
           style: TextStyle(
             fontSize: 16 * pix,
             fontFamily: 'BeVietnamPro',
@@ -726,23 +866,37 @@ class _SensorScreenState extends State<SensorScreen>
     }
 
     return ListView.separated(
-      itemCount: topicMessages[topic]!.length,
+      itemCount: messages.length,
       separatorBuilder: (context, index) => Divider(),
       itemBuilder: (context, index) {
-        final message = topicMessages[topic]![index];
+        final message = messages[index];
         return Container(
           padding: EdgeInsets.all(8 * pix),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Topic: $topic',
-                style: TextStyle(
-                  fontSize: 12 * pix,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textGrey,
-                  fontFamily: 'BeVietnamPro',
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Topic: $topic',
+                    style: TextStyle(
+                      fontSize: 12 * pix,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textGrey,
+                      fontFamily: 'BeVietnamPro',
+                    ),
+                  ),
+                  // Add timestamp extraction
+                  Text(
+                    _extractTimestamp(message),
+                    style: TextStyle(
+                      fontSize: 10 * pix,
+                      color: AppColors.textGrey,
+                      fontFamily: 'BeVietnamPro',
+                    ),
+                  ),
+                ],
               ),
               SizedBox(height: 4 * pix),
               Container(
@@ -753,7 +907,7 @@ class _SensorScreenState extends State<SensorScreen>
                   borderRadius: BorderRadius.circular(8 * pix),
                 ),
                 child: Text(
-                  message,
+                  _extractMessageContent(message),
                   style: TextStyle(
                     fontSize: 14 * pix,
                     fontFamily: 'BeVietnamPro',
@@ -767,91 +921,23 @@ class _SensorScreenState extends State<SensorScreen>
     );
   }
 
-  // 6. Hàm gửi message test
-  void _publishTestMessage() {
-    if (client.connectionStatus?.state == MqttConnectionState.connected) {
-      try {
-        // Tạo message test với timestamp
-        final now = DateTime.now();
-        final timeStr = DateFormat('HH:mm:ss').format(now);
+  // Hàm trích xuất timestamp từ message
+  String _extractTimestamp(String message) {
+    // Định dạng thông thường là: [HH:mm:ss] message
+    RegExp regex = RegExp(r'\[(.*?)\]');
+    var match = regex.firstMatch(message);
+    return match != null ? match.group(1) ?? '' : '';
+  }
 
-        // Test data cho từng garden
-        for (var garden in gardens) {
-          final gardenId = garden['id'];
-          final testData = {
-            'temperature':
-                (20 + math.Random().nextDouble() * 15).toStringAsFixed(1),
-            'humidity':
-                (40 + math.Random().nextDouble() * 50).toStringAsFixed(1),
-            'wind': (5 + math.Random().nextInt(15)),
-            'light': (200 + math.Random().nextInt(600)),
-            'soilMoisture': (30 + math.Random().nextInt(50)),
-            'timestamp': timeStr,
-          };
+  // Hàm trích xuất nội dung message (bỏ timestamp)
+  String _extractMessageContent(String message) {
+    // Bỏ phần [HH:mm:ss] ở đầu message
+    return message.replaceFirst(RegExp(r'\[.*?\]\s*'), '');
+  }
 
-          final topic = 'smart_farm/$gardenId/sensor_data';
-          final payload = json.encode(testData);
-          final builder = MqttClientPayloadBuilder();
-          builder.addString(payload);
-
-          client.publishMessage(topic, MqttQos.atLeastOnce, builder.payload!,
-              retain: false);
-
-          print('Đã gửi message test tới topic $topic: $payload');
-        }
-
-        // Test data cho weather
-        final weatherStates = [
-          'Nắng',
-          'Mưa nhẹ',
-          'Nhiều mây',
-          'Nắng gián đoạn'
-        ];
-        final weatherData = {};
-
-        for (var garden in gardens) {
-          weatherData[garden['id']] = {
-            'weather':
-                weatherStates[math.Random().nextInt(weatherStates.length)],
-            'timestamp': timeStr,
-          };
-        }
-
-        final weatherTopic = 'smart_farm/weather';
-        final weatherPayload = json.encode(weatherData);
-        final weatherBuilder = MqttClientPayloadBuilder();
-        weatherBuilder.addString(weatherPayload);
-
-        client.publishMessage(
-            weatherTopic, MqttQos.atLeastOnce, weatherBuilder.payload!,
-            retain: false);
-
-        print('Đã gửi message test tới topic $weatherTopic: $weatherPayload');
-
-        // Hiển thị thông báo
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã gửi message test thành công'),
-            backgroundColor: AppColors.statusGood,
-          ),
-        );
-      } catch (e) {
-        print('Lỗi khi gửi message test: $e');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Lỗi khi gửi message test: $e'),
-            backgroundColor: AppColors.statusDanger,
-          ),
-        );
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Chưa kết nối tới MQTT broker'),
-          backgroundColor: AppColors.statusDanger,
-        ),
-      );
-    }
+  Widget _buildWeatherCardWithHistoryButton(
+      {required BuildContext context, required Map<String, dynamic> garden}) {
+    return _buildWeatherCard(context: context, garden: garden);
   }
 
   Widget _buildGardenTabs(double pix) {
@@ -905,29 +991,6 @@ class _SensorScreenState extends State<SensorScreen>
     );
   }
 
-  Widget _buildPageIndicator(double pix) {
-    return Container(
-      margin: EdgeInsets.symmetric(vertical: 16 * pix),
-      height: 10 * pix,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: List.generate(
-          gardens.length,
-          (index) => Container(
-            margin: EdgeInsets.symmetric(horizontal: 4 * pix),
-            width: index == _currentPage ? 24 * pix : 10 * pix,
-            decoration: BoxDecoration(
-              color: index == _currentPage
-                  ? AppColors.primaryGreen
-                  : Colors.white.withOpacity(0.4),
-              borderRadius: BorderRadius.circular(5 * pix),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildWeatherCard(
       {required BuildContext context, required Map<String, dynamic> garden}) {
     final size = MediaQuery.of(context).size;
@@ -958,14 +1021,14 @@ class _SensorScreenState extends State<SensorScreen>
               );
             },
             child: Image.asset(
-              garden['image'],
-              width: 120 * pix,
-              height: 120 * pix,
+              image(garden['weather']),
+              width: 100 * pix,
+              height: 100 * pix,
               fit: BoxFit.contain,
             ),
           ),
 
-          // Main weather card
+          // Main weather card with MQTT data
           Container(
             margin: EdgeInsets.symmetric(horizontal: 16 * pix),
             padding: EdgeInsets.all(10 * pix),
@@ -1043,7 +1106,7 @@ class _SensorScreenState extends State<SensorScreen>
                 ),
                 SizedBox(height: 10 * pix),
 
-                // Weather condition
+                // Weather condition from MQTT data
                 Container(
                   padding: EdgeInsets.symmetric(
                     horizontal: 16 * pix,
@@ -1064,9 +1127,11 @@ class _SensorScreenState extends State<SensorScreen>
                   ),
                 ),
 
+                SizedBox(height: 10 * pix),
+
                 Divider(
                   color: Colors.white.withOpacity(0.3),
-                  height: 20 * pix,
+                  height: 10 * pix,
                   thickness: 1.5,
                 ),
 
@@ -1077,9 +1142,9 @@ class _SensorScreenState extends State<SensorScreen>
                       children: [
                         Expanded(
                           child: _buildMetricCard(
-                            icon: Icons.air,
-                            value: '${garden['wind']} km/h',
-                            label: 'Gió',
+                            icon: Icons.thermostat,
+                            value: '${garden['temperature']} °C',
+                            label: 'Nhiệt độ',
                             pix: pix,
                             iconColor: AppColors.lightBlue,
                           ),
@@ -1156,15 +1221,15 @@ class _SensorScreenState extends State<SensorScreen>
             child: Icon(
               icon,
               color: Colors.white,
-              size: 24 * pix,
+              size: 20 * pix,
             ),
           ),
-          SizedBox(height: 12 * pix),
+          SizedBox(height: 8 * pix),
           Text(
             value,
             style: TextStyle(
               color: Colors.white,
-              fontSize: 18 * pix,
+              fontSize: 16 * pix,
               fontWeight: FontWeight.bold,
               fontFamily: 'BeVietnamPro',
             ),
@@ -1174,7 +1239,7 @@ class _SensorScreenState extends State<SensorScreen>
             label,
             style: TextStyle(
               color: Colors.white.withOpacity(0.8),
-              fontSize: 14 * pix,
+              fontSize: 12 * pix,
               fontFamily: 'BeVietnamPro',
             ),
           ),

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:smart_farm/models/user_model.dart';
+import 'package:smart_farm/provider/auth_provider.dart';
 import 'package:smart_farm/res/imagesSF/AppImages.dart';
 import 'package:smart_farm/view/detail_plant.dart';
+import 'package:smart_farm/view/seasons_screen.dart';
 import 'package:smart_farm/widget/bottom_bar.dart';
 import 'package:smart_farm/theme/app_colors.dart';
 
@@ -11,8 +15,27 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   TextEditingController searchController = TextEditingController();
+  late AnimationController _controller;
+  late Animation<double> _animation;
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    );
+    _controller.forward();
+
+    // Initialize data after widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {});
+  }
+
   List<Map<String, String>> allPlants = [
     {
       "id": "1",
@@ -184,7 +207,16 @@ class _HomeScreenState extends State<HomeScreen> {
               bottom: 0,
               left: 0,
               right: 0,
-              child: Bottombar(type: 1),
+              child: FadeTransition(
+                opacity: _animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 1),
+                    end: Offset.zero,
+                  ).animate(_animation),
+                  child: Bottombar(type: 1),
+                ),
+              ),
             ),
           ],
         ),
@@ -242,120 +274,129 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             // Content
-            SafeArea(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20 * pix),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: 10 * pix),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildCircleIconButton(
-                          icon: Icons.menu_rounded,
-                          pix: pix,
-                          onTap: () => _showOptionsDialog(context, pix),
-                        ),
-                        _buildCircleIconButton(
-                          icon: Icons.notifications_outlined,
-                          pix: pix,
-                          onTap: () => _showNotificationsSnackBar(context),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 16 * pix),
-                    Row(
-                      children: [
-                        Container(
-                          height: 80 * pix,
-                          width: 80 * pix,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 3 * pix,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                offset: const Offset(0, 4),
-                                blurRadius: 8,
-                              ),
-                            ],
+            Consumer<AuthProvider>(builder: (context, authProvider, child) {
+              if (authProvider.loading) {
+                return Center(
+                  child: CircularProgressIndicator(),
+                );
+              }
+              final user = authProvider.user;
+              return SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20 * pix),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: 10 * pix),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildCircleIconButton(
+                            icon: Icons.menu_rounded,
+                            pix: pix,
+                            onTap: () => _showOptionsDialog(context, pix),
                           ),
-                          child: ClipOval(
-                            child: Image.asset(
-                              AppImages.caitim,
-                              fit: BoxFit.cover,
+                          _buildCircleIconButton(
+                            icon: Icons.notifications_outlined,
+                            pix: pix,
+                            onTap: () => _showNotificationsSnackBar(context),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 16 * pix),
+                      Row(
+                        children: [
+                          Container(
+                            height: 80 * pix,
+                            width: 80 * pix,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 3 * pix,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  offset: const Offset(0, 4),
+                                  blurRadius: 8,
+                                ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: Image.asset(
+                                AppImages.caitim,
+                                fit: BoxFit.cover,
+                              ),
                             ),
                           ),
-                        ),
-                        SizedBox(width: 16 * pix),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Xin chào,',
-                                style: TextStyle(
-                                  fontSize: 16 * pix,
-                                  fontWeight: FontWeight.normal,
-                                  fontFamily: 'BeVietnamPro',
-                                  color: Colors.white.withOpacity(0.9),
+                          SizedBox(width: 16 * pix),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Xin chào,',
+                                  style: TextStyle(
+                                    fontSize: 16 * pix,
+                                    fontWeight: FontWeight.normal,
+                                    fontFamily: 'BeVietnamPro',
+                                    color: Colors.white.withOpacity(0.9),
+                                  ),
                                 ),
-                              ),
-                              SizedBox(height: 4 * pix),
-                              Text(
-                                'Duong Quoc Hoang',
-                                style: TextStyle(
-                                  fontSize: 24 * pix,
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: 'BeVietnamPro',
-                                  color: Colors.white,
+                                SizedBox(height: 4 * pix),
+                                Text(
+                                  user?.username ?? 'Người dùng',
+                                  style: TextStyle(
+                                    fontSize: 24 * pix,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: 'BeVietnamPro',
+                                    color: Colors.white,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              SizedBox(height: 8 * pix),
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: 12 * pix,
-                                  vertical: 6 * pix,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(20 * pix),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.eco,
-                                      color: Colors.white,
-                                      size: 16 * pix,
-                                    ),
-                                    SizedBox(width: 6 * pix),
-                                    Text(
-                                      'Chúc vụ mùa bội thu!',
-                                      style: TextStyle(
-                                        fontSize: 14 * pix,
-                                        fontWeight: FontWeight.w500,
-                                        fontFamily: 'BeVietnamPro',
+                                SizedBox(height: 8 * pix),
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 12 * pix,
+                                    vertical: 6 * pix,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius:
+                                        BorderRadius.circular(20 * pix),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.eco,
                                         color: Colors.white,
+                                        size: 16 * pix,
                                       ),
-                                    ),
-                                  ],
+                                      SizedBox(width: 6 * pix),
+                                      Text(
+                                        'Chúc vụ mùa bội thu!',
+                                        style: TextStyle(
+                                          fontSize: 14 * pix,
+                                          fontWeight: FontWeight.w500,
+                                          fontFamily: 'BeVietnamPro',
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ),
+              );
+            }),
           ],
         ),
       ),
@@ -571,6 +612,21 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildDialogOption(
                 context: context,
                 icon: Icons.add_circle_outline,
+                title: 'Thêm mùa vụ mới',
+                pix: pix,
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SeasonsScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildDialogOption(
+                context: context,
+                icon: Icons.add_circle_outline,
                 title: 'Thêm cây mới',
                 pix: pix,
                 onTap: () {
@@ -600,7 +656,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 pix: pix,
                 onTap: () {
                   Navigator.pop(context);
-                  _showLogoutConfirmation(context, pix);
+                  Navigator.pop(context);
+                  final authProvider =
+                      Provider.of<AuthProvider>(context, listen: false);
+                  authProvider.logout();
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Đã đăng xuất'),
+                      backgroundColor: AppColors.primaryGreen,
+                    ),
+                  );
                 },
               ),
             ],
@@ -778,73 +844,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  void _showLogoutConfirmation(BuildContext context, double pix) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            'Xác nhận đăng xuất',
-            style: TextStyle(
-              fontSize: 20 * pix,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'BeVietnamPro',
-            ),
-          ),
-          content: Text(
-            'Bạn có chắc chắn muốn đăng xuất?',
-            style: TextStyle(
-              fontSize: 16 * pix,
-              fontFamily: 'BeVietnamPro',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Hủy',
-                style: TextStyle(
-                  fontSize: 16 * pix,
-                  fontFamily: 'BeVietnamPro',
-                  color: AppColors.textGrey,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                // TODO: Implement logout logic
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Đã đăng xuất'),
-                    backgroundColor: AppColors.primaryGreen,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreen,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12 * pix),
-                ),
-              ),
-              child: Text(
-                'Đăng xuất',
-                style: TextStyle(
-                  fontSize: 16 * pix,
-                  fontFamily: 'BeVietnamPro',
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 

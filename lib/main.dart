@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_farm/provider/auth_provider.dart';
+import 'package:smart_farm/provider/location_provider.dart';
+import 'package:smart_farm/provider/plant_provider.dart';
 import 'package:smart_farm/provider/season_provider.dart';
 import 'package:smart_farm/view/login_screen.dart';
 import 'package:smart_farm/theme/app_theme.dart';
@@ -14,6 +16,8 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => SeasonProvider()),
+        ChangeNotifierProvider(create: (_) => PlantProvider()),
+        ChangeNotifierProvider(create: (_) => LocationProvider()),
       ],
       child: const MyApp(),
     ),

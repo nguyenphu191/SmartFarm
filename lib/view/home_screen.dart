@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:smart_farm/models/user_model.dart';
 import 'package:smart_farm/provider/auth_provider.dart';
 import 'package:smart_farm/res/imagesSF/AppImages.dart';
+import 'package:smart_farm/view/add_plant_screen.dart';
 import 'package:smart_farm/view/detail_plant.dart';
 import 'package:smart_farm/view/seasons_screen.dart';
 import 'package:smart_farm/widget/bottom_bar.dart';
@@ -634,7 +635,7 @@ class _HomeScreenState extends State<HomeScreen>
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => DetailPlantScreen(plantid: ''),
+                      builder: (context) => AddPlantScreen(),
                     ),
                   );
                 },

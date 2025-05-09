@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:smart_farm/models/season_model.dart';
 import 'package:smart_farm/provider/season_provider.dart';
 import 'package:smart_farm/view/detail_season_screen.dart';
 import 'package:smart_farm/widget/top_bar.dart';
@@ -284,6 +283,16 @@ class _SeasonsScreenState extends State<SeasonsScreen> {
         });
       },
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final seasonProvider =
+          Provider.of<SeasonProvider>(context, listen: false);
+      seasonProvider.fetchSeasons();
+    });
   }
 
   @override

@@ -1,33 +1,38 @@
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:smart_farm/models/season_model.dart';
+import 'package:smart_farm/models/location_model.dart';
 import 'package:smart_farm/utils/base_url.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-class SeasonProvider with ChangeNotifier {
+class LocationProvider with ChangeNotifier {
   String baseUrl = BaseUrl.baseUrl;
   bool _loading = false;
   bool get loading => _loading;
-  List<SeasonModel> _seasons = [];
-  List<SeasonModel> get seasons => _seasons;
+  List<LocationModel> _locations = [];
+  List<LocationModel> get locations => _locations;
+  void reset() {
+    _locations = [];
+    _loading = false;
+    notifyListeners();
+  }
 
-  Future<void> fetchSeasons() async {
+  Future<void> fetchLocations(String seasonId) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("token");
     if (token == null) {
-      print('Token is null, cannot fetch seasons');
+      print('Token is null, cannot fetch locations');
 
       return;
     }
     _loading = true;
     notifyListeners();
 
-    print('Fetching seasons...');
-    _seasons = [];
+    print('Fetching locations...');
+    _locations = [];
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/seasons'),
+        Uri.parse('$baseUrl/api/seasons/${seasonId}/locations'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -36,16 +41,11 @@ class SeasonProvider with ChangeNotifier {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final body = json.decode(response.body);
-        final List<dynamic> data = body['data']['seasons'];
-        _seasons = data.map((season) => SeasonModel.fromJson(season)).toList();
-
-        _seasons.sort((a, b) {
-          if (a.isActive && !b.isActive) return -1;
-          if (!a.isActive && b.isActive) return 1;
-          return 0;
-        });
+        final List<dynamic> data = body['data']['locations'];
+        _locations =
+            data.map((location) => LocationModel.fromJson(location)).toList();
       } else {
-        throw Exception('Failed to load seasons');
+        throw Exception('Failed to load locations');
       }
     } catch (e) {
       print(e);
@@ -55,12 +55,12 @@ class SeasonProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> addSeason(
-      String name, DateTime startDate, DateTime endDate) async {
+  Future<bool> addLocation(
+      String seasonId, String name, String description, int area) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("token");
     if (token == null) {
-      print('Token is null, cannot add season');
+      print('Token is null, cannot add location');
       return false;
     }
     _loading = true;
@@ -68,24 +68,24 @@ class SeasonProvider with ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/api/seasons'),
+        Uri.parse('$baseUrl/api/seasons/${seasonId}/locations'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
         body: json.encode({
           'name': name,
-          'start_date': startDate.toIso8601String(),
-          'end_date': endDate.toIso8601String(),
+          'description': description,
+          'area': '${area} m2',
         }),
       );
       print('Response status: ${response.statusCode}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        await fetchSeasons();
+        await fetchLocations(seasonId);
         return true;
       } else {
-        throw Exception('Failed to add season');
+        throw Exception('Failed to add location');
       }
     } catch (e) {
       print(e);
@@ -96,37 +96,34 @@ class SeasonProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> updateSeason(
-      {required String id,
-      String? name,
-      DateTime? startDate,
-      DateTime? endDate}) async {
+  Future<bool> updateLocation(
+      String id, String name, String description, int area) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("token");
     if (token == null) {
-      print('Token is null, cannot update season');
+      print('Token is null, cannot update location');
       return false;
     }
     _loading = true;
     notifyListeners();
     try {
       final response = await http.put(
-        Uri.parse('$baseUrl/api/seasons/$id'),
+        Uri.parse('$baseUrl/api/locations/$id'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
         body: json.encode({
           'name': name,
-          'start_date': startDate?.toIso8601String(),
-          'end_date': endDate?.toIso8601String(),
+          'description': description,
+          'area': '${area} m2',
         }),
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
-        await fetchSeasons();
+        await fetchLocations(id);
         return true;
       } else {
-        throw Exception('Failed to update season');
+        throw Exception('Failed to update location');
       }
     } catch (e) {
       print(e);
@@ -137,28 +134,28 @@ class SeasonProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> deleteSeason(String id) async {
+  Future<bool> deleteLocation(String seasonId, String locationId) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("token");
     if (token == null) {
-      print('Token is null, cannot delete season');
+      print('Token is null, cannot delete location');
       return false;
     }
     _loading = true;
     notifyListeners();
     try {
       final response = await http.delete(
-        Uri.parse('$baseUrl/api/seasons/$id'),
+        Uri.parse('$baseUrl/api/seasons/${seasonId}/locations/$locationId'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
-        await fetchSeasons();
+        await fetchLocations(seasonId);
         return true;
       } else {
-        throw Exception('Failed to delete season');
+        throw Exception('Failed to delete location');
       }
     } catch (e) {
       print(e);

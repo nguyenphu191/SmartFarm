@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class AuthProvider with ChangeNotifier {
-  String _baseUrl = BaseUrl().baseUrl;
+  String _baseUrl = BaseUrl.baseUrl;
   bool _loading = false;
   String? _token;
   UserModel? _user;

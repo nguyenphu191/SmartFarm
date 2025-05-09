@@ -24,12 +24,12 @@ class _SensorScreenState extends State<SensorScreen>
 
   // MQTT Client
   late MqttServerClient client;
-  final String broker = '192.168.0.103'; // IP của Mosquitto server local
+  final String broker = '103.6.234.189'; // IP của Mosquitto server local
   final int port = 1883;
   final String clientIdentifier =
       'smart_farm_flutter_${DateTime.now().millisecondsSinceEpoch}';
-  final String username = 'phu'; // Username
-  final String password = '123456'; // Password
+  final String username = 'admin'; // Username
+  final String password = 'admin'; // Password
   final String mainTopic = 'sensor/data'; // Topic chính để subscribe
 
   bool isConnected = false;
@@ -644,7 +644,7 @@ class _SensorScreenState extends State<SensorScreen>
             ),
             SizedBox(width: 4 * pix),
             Text(
-              'MQTT Monitor',
+              'MQTT',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 12 * pix,
@@ -681,7 +681,7 @@ class _SensorScreenState extends State<SensorScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'MQTT Monitor',
+                        'MQTT',
                         style: TextStyle(
                           fontSize: 20 * pix,
                           fontWeight: FontWeight.bold,

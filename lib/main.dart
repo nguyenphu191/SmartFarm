@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_farm/provider/auth_provider.dart';
+import 'package:smart_farm/provider/care_plan_provider.dart'
+    show CarePlanProvider;
 import 'package:smart_farm/provider/location_provider.dart';
 import 'package:smart_farm/provider/plant_provider.dart';
 import 'package:smart_farm/provider/season_provider.dart';
@@ -18,6 +20,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => SeasonProvider()),
         ChangeNotifierProvider(create: (_) => PlantProvider()),
         ChangeNotifierProvider(create: (_) => LocationProvider()),
+        ChangeNotifierProvider(create: (_) => CarePlanProvider()),
       ],
       child: const MyApp(),
     ),

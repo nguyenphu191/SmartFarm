@@ -13,7 +13,7 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
   TextEditingController searchController = TextEditingController();
   bool _isLoading = false;
@@ -85,12 +85,24 @@ class _HistoryScreenState extends State<HistoryScreen>
       "status": "Hoàn thành",
     },
   ];
-
-  @override
+  late AnimationController _controller;
+  late Animation<double> _animation;
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    );
     _tabController = TabController(length: 3, vsync: this);
     _loadData();
+    _controller.forward();
+
+    // Initialize data after widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {});
   }
 
   void _loadData() {
@@ -110,6 +122,7 @@ class _HistoryScreenState extends State<HistoryScreen>
   void dispose() {
     _tabController.dispose();
     searchController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -205,12 +218,20 @@ class _HistoryScreenState extends State<HistoryScreen>
             ),
           ),
 
-          // Bottom Bar
-          const Positioned(
+          Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            child: Bottombar(type: 3),
+            child: FadeTransition(
+              opacity: _animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0, 1),
+                  end: Offset.zero,
+                ).animate(_animation),
+                child: Bottombar(type: 3),
+              ),
+            ),
           ),
         ],
       ),

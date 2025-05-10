@@ -55,6 +55,8 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
       if (image != null) {
         setState(() {
           _selectedImage = image;
+          systemImg =
+              ""; // Clear the system image when a gallery image is selected
         });
       }
     } catch (e) {
@@ -82,6 +84,8 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
       if (image != null) {
         setState(() {
           _selectedImage = image;
+          systemImg =
+              ""; // Clear the system image when a camera image is selected
         });
       }
     } catch (e) {
@@ -156,6 +160,8 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                           plantNameController.text =
                               defaultImages[index]['name'];
                           systemImg = defaultImages[index]['image'];
+                          _selectedImage =
+                              null; // Clear the selected image when choosing a default image
                         });
                         Navigator.pop(context);
                       },
@@ -395,6 +401,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
           _buildPlantingDateSection(pix),
           _buildSeasonsSection(pix),
           _buildAddressSection(pix),
+          _buildPlantAdressSection(pix),
           _buildNotesSection(pix),
           _buildActionButtons(pix),
           SizedBox(height: 16 * pix),
@@ -952,6 +959,37 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     );
   }
 
+  Widget _buildPlantAdressSection(double pix) {
+    return Padding(
+      padding: EdgeInsets.all(16 * pix),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Địa chỉ cụ thể:',
+            style: TextStyle(
+              fontSize: 16 * pix,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'BeVietnamPro',
+            ),
+          ),
+          SizedBox(height: 8 * pix),
+          TextField(
+            controller: noteController,
+            decoration: InputDecoration(
+              hintText: 'VD: Dãy 1, khu vực A...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8 * pix),
+              ),
+              contentPadding: EdgeInsets.all(16 * pix),
+            ),
+            maxLines: 1,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildNotesSection(double pix) {
     return Padding(
       padding: EdgeInsets.all(16 * pix),
@@ -1174,7 +1212,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
               content: Text("Bạn có chắc chắn muốn xóa công việc này?"),
               actions: [
                 TextButton(
-                  child: Text("HủyCola"),
+                  child: Text("Hủy"),
                   onPressed: () => Navigator.of(context).pop(false),
                 ),
                 TextButton(

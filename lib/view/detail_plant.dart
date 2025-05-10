@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import 'package:smart_farm/provider/care_plan_provider.dart';
 import 'package:smart_farm/res/imagesSF/AppImages.dart';
 import 'package:smart_farm/widget/top_bar.dart';
 import 'package:intl/intl.dart';
@@ -37,10 +39,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
     'Đang tốt',
     'Cần chú ý',
     'Có vấn đề',
-    'Đã thu hoạch'
   ];
-
-  List<Map<String, dynamic>> carePlan = [];
 
   @override
   void initState() {
@@ -123,19 +122,6 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
       yieldController.text = plant["yield"] ?? "";
 
       // Khởi tạo kế hoạch chăm sóc giả
-      carePlan = [
-        {'date': DateTime.now(), 'task': 'Bón phân', 'completed': false},
-        {
-          'date': DateTime.now().add(Duration(days: 7)),
-          'task': 'Tưới nước',
-          'completed': false
-        },
-        {
-          'date': DateTime.now().add(Duration(days: 14)),
-          'task': 'Phun thuốc',
-          'completed': false
-        },
-      ];
 
       setState(() {
         _isLoading = false;
@@ -439,66 +425,96 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
     final size = MediaQuery.of(context).size;
     final pix = size.width / 375;
 
-    return Container(
-      width: size.width,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16 * pix),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.all(16 * pix),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Kế hoạch chăm sóc',
-                  style: TextStyle(
-                    fontSize: 18 * pix,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'BeVietnamPro',
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.add_circle,
-                    color: Colors.green,
-                    size: 28 * pix,
-                  ),
-                  onPressed: () {
-                    _addNewCareTask();
-                  },
-                ),
-              ],
+    return Consumer<CarePlanProvider>(
+        builder: (context, carePlanProvider, child) {
+      if (carePlanProvider.loading) {
+        return Center(
+          child: CircularProgressIndicator(),
+        );
+      }
+
+      return Container(
+        width: size.width,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16 * pix),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: Offset(0, 5),
             ),
-          ),
-          Divider(height: 1, thickness: 1, color: Colors.grey.withOpacity(0.2)),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
-            itemCount: carePlan.length,
-            separatorBuilder: (context, index) => Divider(
-              height: 1,
-              thickness: 1,
-              color: Colors.grey.withOpacity(0.2),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: EdgeInsets.all(16 * pix),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Kế hoạch chăm sóc',
+                    style: TextStyle(
+                      fontSize: 18 * pix,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'BeVietnamPro',
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.add_circle,
+                      color: Colors.green,
+                      size: 28 * pix,
+                    ),
+                    onPressed: () {
+                      _addNewCareTask();
+                    },
+                  ),
+                ],
+              ),
             ),
-            itemBuilder: (context, index) {
-              final task = carePlan[index];
-              return _buildCareTaskItem(task, index, pix);
-            },
-          ),
-        ],
-      ),
-    );
+            Divider(
+                height: 1, thickness: 1, color: Colors.grey.withOpacity(0.2)),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: NeverScrollableScrollPhysics(),
+              itemCount: carePlanProvider.carePlanList.length,
+              separatorBuilder: (context, index) => Divider(
+                height: 1,
+                thickness: 1,
+                color: Colors.grey.withOpacity(0.2),
+              ),
+              itemBuilder: (context, index) {
+                final task = carePlanProvider.carePlanList[index];
+                return ListTile(
+                  title: Text(
+                    task.type,
+                    style: TextStyle(
+                      fontSize: 16 * pix,
+                      fontFamily: 'BeVietnamPro',
+                    ),
+                  ),
+                  subtitle: Text(
+                    task.date,
+                    style: TextStyle(
+                      fontSize: 14 * pix,
+                      color: Colors.grey[600],
+                      fontFamily: 'BeVietnamPro',
+                    ),
+                  ),
+                  trailing: IconButton(
+                    icon: Icon(Icons.delete, color: Colors.red),
+                    onPressed: () {},
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _buildLoadingIndicator() {
@@ -1333,7 +1349,6 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
           'yield': plant["yield"],
         },
         'plantingDate': selectedDate,
-        'carePlan': carePlan,
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1379,103 +1394,6 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCareTaskItem(Map<String, dynamic> task, int index, double pix) {
-    return Dismissible(
-      key: Key('care-task-${index}'),
-      background: Container(
-        color: Colors.red,
-        alignment: Alignment.centerRight,
-        padding: EdgeInsets.only(right: 20 * pix),
-        child: Icon(
-          Icons.delete,
-          color: Colors.white,
-          size: 26 * pix,
-        ),
-      ),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (direction) async {
-        return await showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: Text("Xóa công việc"),
-              content: Text("Bạn có chắc chắn muốn xóa công việc này?"),
-              actions: [
-                TextButton(
-                  child: Text("Hủy"),
-                  onPressed: () => Navigator.of(context).pop(false),
-                ),
-                TextButton(
-                  child: Text(
-                    "Xóa",
-                    style: TextStyle(color: Colors.red),
-                  ),
-                  onPressed: () => Navigator.of(context).pop(true),
-                ),
-              ],
-            );
-          },
-        );
-      },
-      onDismissed: (direction) {
-        setState(() {
-          carePlan.removeAt(index);
-        });
-      },
-      child: ListTile(
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 16 * pix,
-          vertical: 8 * pix,
-        ),
-        leading: Container(
-          width: 40 * pix,
-          height: 40 * pix,
-          decoration: BoxDecoration(
-            color: _getTaskColor(task['task']).withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            _getTaskIcon(task['task']),
-            color: _getTaskColor(task['task']),
-            size: 20 * pix,
-          ),
-        ),
-        title: Text(
-          task['task'],
-          style: TextStyle(
-            fontSize: 16 * pix,
-            fontWeight: FontWeight.w500,
-            fontFamily: 'BeVietnamPro',
-            decoration: task['completed'] == true
-                ? TextDecoration.lineThrough
-                : TextDecoration.none,
-          ),
-        ),
-        subtitle: Text(
-          '${DateFormat('dd/MM/yyyy').format(task['date'])}',
-          style: TextStyle(
-            fontSize: 14 * pix,
-            color: Colors.grey[600],
-            fontFamily: 'BeVietnamPro',
-            decoration: task['completed'] == true
-                ? TextDecoration.lineThrough
-                : TextDecoration.none,
-          ),
-        ),
-        trailing: IconButton(
-          icon: Icon(
-            Icons.edit,
-            size: 20 * pix,
-            color: Colors.blue,
-          ),
-          onPressed: () {
-            _editCareTask(index);
-          },
         ),
       ),
     );
@@ -1568,152 +1486,6 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
             ],
           );
         },
-      );
-
-      if (task != null) {
-        setState(() {
-          carePlan.add({
-            'date': pickedDate,
-            'task': task,
-            'completed': false,
-          });
-          carePlan.sort((a, b) => a['date'].compareTo(b['date']));
-        });
-      }
-    }
-  }
-
-  void _editCareTask(int index) async {
-    final originalTask = carePlan[index];
-    DateTime newDate = originalTask['date'];
-    String newTask = originalTask['task'];
-    bool isCompleted = originalTask['completed'] ?? false;
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              title: Text('Chỉnh sửa công việc'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ListTile(
-                    title: Text('Ngày'),
-                    subtitle: Text(DateFormat('dd/MM/yyyy').format(newDate)),
-                    trailing: Icon(Icons.calendar_today),
-                    onTap: () async {
-                      final DateTime? picked = await showDatePicker(
-                        context: context,
-                        initialDate: newDate,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                        builder: (BuildContext context, Widget? child) {
-                          return Theme(
-                            data: ThemeData.light().copyWith(
-                              colorScheme: ColorScheme.light(
-                                primary: Colors.green,
-                                onPrimary: Colors.white,
-                              ),
-                            ),
-                            child: child!,
-                          );
-                        },
-                      );
-                      if (picked != null) {
-                        setState(() {
-                          newDate = picked;
-                        });
-                      }
-                    },
-                  ),
-                  SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: newTask,
-                    decoration: InputDecoration(
-                      labelText: 'Công việc',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: careTaskTypes.map((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Row(
-                          children: [
-                            Icon(
-                              _getTaskIcon(value),
-                              color: _getTaskColor(value),
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Text(value),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          newTask = value;
-                        });
-                      }
-                    },
-                  ),
-                  SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Checkbox(
-                        value: isCompleted,
-                        activeColor: Colors.green,
-                        onChanged: (value) {
-                          setState(() {
-                            isCompleted = value ?? false;
-                          });
-                        },
-                      ),
-                      Text('Đã hoàn thành'),
-                    ],
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context, false);
-                  },
-                  child: Text('Hủy'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    this.setState(() {
-                      carePlan[index]['date'] = newDate;
-                      carePlan[index]['task'] = newTask;
-                      carePlan[index]['completed'] = isCompleted;
-                      carePlan.sort((a, b) => a['date'].compareTo(b['date']));
-                    });
-                    Navigator.pop(context, true);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                  ),
-                  child: Text(
-                    'Lưu',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    if (result == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đã cập nhật công việc'),
-          backgroundColor: Colors.green,
-        ),
       );
     }
   }
@@ -1979,7 +1751,6 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                _addDiseaseTask();
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
@@ -1992,23 +1763,6 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
           ],
         );
       },
-    );
-  }
-
-  void _addDiseaseTask() {
-    setState(() {
-      carePlan.add({
-        'date': DateTime.now().add(Duration(days: 1)),
-        'task': 'Xử lý sâu bệnh',
-        'completed': false,
-      });
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đã thêm việc xử lý bệnh vào kế hoạch'),
-        backgroundColor: Colors.green,
-      ),
     );
   }
 }

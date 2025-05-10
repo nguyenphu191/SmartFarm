@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:smart_farm/models/user_model.dart';
 import 'package:smart_farm/provider/auth_provider.dart';
 import 'package:smart_farm/res/imagesSF/AppImages.dart';
+import 'package:smart_farm/utils/base_url.dart';
 import 'package:smart_farm/view/add_plant_screen.dart';
 import 'package:smart_farm/view/detail_plant.dart';
 import 'package:smart_farm/view/seasons_screen.dart';
 import 'package:smart_farm/widget/bottom_bar.dart';
 import 'package:smart_farm/theme/app_colors.dart';
+import 'package:smart_farm/widget/network_img.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   TextEditingController searchController = TextEditingController();
+  String _baseUrl = BaseUrl.baseUrl;
   late AnimationController _controller;
   late Animation<double> _animation;
   void initState() {
@@ -308,29 +310,29 @@ class _HomeScreenState extends State<HomeScreen>
                       Row(
                         children: [
                           Container(
-                            height: 80 * pix,
-                            width: 80 * pix,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 3 * pix,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  offset: const Offset(0, 4),
-                                  blurRadius: 8,
+                              height: 80 * pix,
+                              width: 80 * pix,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 3 * pix,
                                 ),
-                              ],
-                            ),
-                            child: ClipOval(
-                              child: Image.asset(
-                                AppImages.caitim,
-                                fit: BoxFit.cover,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.2),
+                                    offset: const Offset(0, 4),
+                                    blurRadius: 8,
+                                  ),
+                                ],
                               ),
-                            ),
-                          ),
+                              child: ClipOval(
+                                child: NetworkImageWidget(
+                                  url: "${_baseUrl}${user?.avatar}" ?? "",
+                                  width: 80 * pix,
+                                  height: 80 * pix,
+                                ),
+                              )),
                           SizedBox(width: 16 * pix),
                           Expanded(
                             child: Column(

@@ -33,7 +33,7 @@ class _LoginscreenState extends State<Loginscreen> {
 
     final success = await authProvider.login(email, password);
     if (success) {
-      Navigator.pushReplacement(
+      Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const HomeScreen()),
       );

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:smart_farm/models/plant_model.dart';
 import 'package:smart_farm/provider/auth_provider.dart';
-import 'package:smart_farm/res/imagesSF/AppImages.dart';
+import 'package:smart_farm/provider/plant_provider.dart';
 import 'package:smart_farm/utils/base_url.dart';
 import 'package:smart_farm/view/add_plant_screen.dart';
 import 'package:smart_farm/view/detail_plant.dart';
@@ -36,65 +37,26 @@ class _HomeScreenState extends State<HomeScreen>
     _controller.forward();
 
     // Initialize data after widget is built
-    WidgetsBinding.instance.addPostFrameCallback((_) {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final plantProvider = Provider.of<PlantProvider>(context, listen: false);
+      plantProvider.fetchPlants(false);
+      allPlants = plantProvider.plants;
+    });
   }
 
-  List<Map<String, String>> allPlants = [
-    {
-      "id": "1",
-      "name": "Su hào",
-      "image": AppImages.suhao,
-      "address": "Vườn 1",
-      "status": "Đang tốt",
-    },
-    {
-      "id": "2",
-      "name": "Khoai tây",
-      "image": AppImages.khoaitay,
-      "address": "Vườn 2",
-      "status": "Cần chú ý",
-    },
-    {
-      "id": "3",
-      "name": "Súp lơ",
-      "image": AppImages.supno,
-      "address": "Vườn 3",
-      "status": "Đang tốt",
-    },
-    {
-      "id": "4",
-      "name": "Su hào",
-      "image": AppImages.suhao,
-      "address": "Vườn 4",
-      "status": "Đang tốt",
-    },
-    {
-      "id": "5",
-      "name": "Khoai tây",
-      "image": AppImages.khoaitay,
-      "address": "Vườn 5",
-      "status": "Có vấn đề",
-    },
-    {
-      "id": "6",
-      "name": "Súp lơ",
-      "image": AppImages.supno,
-      "address": "Vườn 6",
-      "status": "Đang tốt",
-    },
-  ];
+  List<PlantModel> allPlants = [];
 
-  List<Map<String, String>> get filteredPlants {
+  List<PlantModel> get filteredPlants {
     if (searchController.text.isEmpty) {
       return allPlants;
     }
 
     return allPlants
         .where((plant) =>
-            plant['name']!
+            plant.name!
                 .toLowerCase()
                 .contains(searchController.text.toLowerCase()) ||
-            plant['address']!
+            plant.address!
                 .toLowerCase()
                 .contains(searchController.text.toLowerCase()))
         .toList();
@@ -115,96 +77,108 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         child: Stack(
           children: [
-            Positioned(
-              top: 180 * pix,
-              left: 16 * pix,
-              right: 16 * pix,
-              bottom: 50 * pix,
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    SizedBox(height: 40 * pix),
-                    // Search Bar
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 16 * pix),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16 * pix),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: TextField(
-                        controller: searchController,
-                        style: TextStyle(
-                          color: AppColors.textDark,
-                          fontSize: 16 * pix,
+            Consumer<PlantProvider>(builder: (context, plantProvider, child) {
+              if (plantProvider.loading) {
+                return Center(
+                  child: CircularProgressIndicator(),
+                );
+              }
+              if (plantProvider.plants.isEmpty) {
+                return _buildEmptyState(pix);
+              }
+
+              return Positioned(
+                top: 180 * pix,
+                left: 16 * pix,
+                right: 16 * pix,
+                bottom: 50 * pix,
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      SizedBox(height: 40 * pix),
+                      // Search Bar
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 16 * pix),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16 * pix),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
                         ),
-                        decoration: InputDecoration(
-                          hintText: 'Tìm kiếm cây trồng',
-                          hintStyle: TextStyle(color: AppColors.textGrey),
-                          prefixIcon: Icon(
-                            Icons.search,
-                            color: AppColors.textGrey,
+                        child: TextField(
+                          controller: searchController,
+                          style: TextStyle(
+                            color: AppColors.textDark,
+                            fontSize: 16 * pix,
                           ),
-                          suffixIcon: searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: Icon(
-                                    Icons.clear,
-                                    color: AppColors.textGrey,
-                                  ),
-                                  onPressed: () {
-                                    searchController.clear();
-                                    setState(() {});
-                                  },
-                                )
-                              : null,
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 16 * pix,
-                            vertical: 14 * pix,
-                          ),
-                        ),
-                        onChanged: (value) {
-                          setState(() {});
-                        },
-                      ),
-                    ),
-                    SizedBox(height: 24 * pix),
-                    // Plants List
-                    filteredPlants.isEmpty
-                        ? _buildEmptyState(pix)
-                        : ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: filteredPlants.length,
-                            itemBuilder: (context, index) {
-                              final plant = filteredPlants[index];
-                              return _buildPlantCard(
-                                plant: plant,
-                                pix: pix,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => DetailPlantScreen(
-                                        plantid: plant['id']!,
-                                      ),
+                          decoration: InputDecoration(
+                            hintText: 'Tìm kiếm cây trồng',
+                            hintStyle: TextStyle(color: AppColors.textGrey),
+                            prefixIcon: Icon(
+                              Icons.search,
+                              color: AppColors.textGrey,
+                            ),
+                            suffixIcon: searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: Icon(
+                                      Icons.clear,
+                                      color: AppColors.textGrey,
                                     ),
-                                  );
-                                },
+                                    onPressed: () {
+                                      searchController.clear();
+                                      setState(() {});
+                                    },
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16 * pix,
+                              vertical: 14 * pix,
+                            ),
+                          ),
+                          onChanged: (value) {
+                            setState(() {});
+                          },
+                        ),
+                      ),
+                      SizedBox(height: 24 * pix),
+                      // Plants List
+
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: plantProvider.plants.length,
+                        itemBuilder: (context, index) {
+                          final plant = plantProvider.plants[index];
+                          return _buildPlantCard(
+                            plant: plant,
+                            pix: pix,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => DetailPlantScreen(
+                                    seasonId: plant.seasonId!,
+                                    locationId: plant.locationId!,
+                                    plantid: plant.id!,
+                                  ),
+                                ),
                               );
                             },
-                          ),
-                    SizedBox(height: 40 * pix),
-                  ],
+                          );
+                        },
+                      ),
+                      SizedBox(height: 40 * pix),
+                    ],
+                  ),
                 ),
-              ),
-            ),
+              );
+            }),
             _buildHeader(size, pix),
             Positioned(
               bottom: 0,
@@ -432,17 +406,23 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildPlantCard({
-    required Map<String, String> plant,
+    required PlantModel plant,
     required double pix,
     required VoidCallback onTap,
   }) {
     Color statusColor = AppColors.statusGood;
-    if (plant['status']!.contains('Cần chú ý')) {
+    if (plant.status!.contains('Cần chú ý')) {
       statusColor = AppColors.statusWarning;
-    } else if (plant['status']!.contains('Có vấn đề')) {
+    } else if (plant.status!.contains('Có vấn đề')) {
       statusColor = AppColors.statusDanger;
     }
-
+    String img = plant.image!;
+    bool sys = false;
+    if (img[1] == 'd') {
+      img = img.substring(17);
+      sys = true;
+    }
+    print(img);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -463,32 +443,42 @@ class _HomeScreenState extends State<HomeScreen>
           padding: EdgeInsets.all(16 * pix),
           child: Row(
             children: [
-              Container(
-                height: 80 * pix,
-                width: 80 * pix,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12 * pix),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      offset: const Offset(0, 2),
-                      blurRadius: 6,
+              sys
+                  ? Container(
+                      height: 80 * pix,
+                      width: 80 * pix,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12 * pix),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            offset: const Offset(0, 2),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                      clipBehavior: Clip.hardEdge,
+                      child: Image.asset(
+                        img,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : ClipOval(
+                      child: NetworkImageWidget(
+                        url: "${_baseUrl}${img}",
+                        width: 80 * pix,
+                        height: 80 * pix,
+                      ),
                     ),
-                  ],
-                ),
-                clipBehavior: Clip.hardEdge,
-                child: Image.asset(
-                  plant['image']!,
-                  fit: BoxFit.cover,
-                ),
-              ),
               SizedBox(width: 16 * pix),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      plant['name']!,
+                      plant.name!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 18 * pix,
                         fontWeight: FontWeight.bold,
@@ -506,7 +496,9 @@ class _HomeScreenState extends State<HomeScreen>
                         ),
                         SizedBox(width: 4 * pix),
                         Text(
-                          plant['address']!,
+                          plant.address!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 14 * pix,
                             fontFamily: 'BeVietnamPro',
@@ -538,7 +530,9 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                           SizedBox(width: 6 * pix),
                           Text(
-                            plant['status']!,
+                            plant.status!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 13 * pix,
                               fontWeight: FontWeight.w600,

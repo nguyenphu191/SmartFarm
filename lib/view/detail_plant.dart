@@ -1,28 +1,39 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:smart_farm/models/plant_model.dart';
 import 'package:smart_farm/provider/care_plan_provider.dart';
+import 'package:smart_farm/provider/plant_provider.dart';
 import 'package:smart_farm/res/imagesSF/AppImages.dart';
+import 'package:smart_farm/utils/base_url.dart';
 import 'package:smart_farm/widget/top_bar.dart';
 import 'package:intl/intl.dart';
 
 class DetailPlantScreen extends StatefulWidget {
+  final String seasonId;
+  final String locationId;
   final String plantid;
-  const DetailPlantScreen({super.key, required this.plantid});
+  const DetailPlantScreen(
+      {super.key,
+      required this.plantid,
+      required this.seasonId,
+      required this.locationId});
 
   @override
   _DetailPlantScreenState createState() => _DetailPlantScreenState();
 }
 
 class _DetailPlantScreenState extends State<DetailPlantScreen> {
-  DateTime selectedDate = DateTime.now();
-  late Map<String, dynamic> plant;
   TextEditingController noteController = TextEditingController();
   TextEditingController yieldController = TextEditingController();
+  TextEditingController nameController = TextEditingController();
+  TextEditingController addressController = TextEditingController();
   XFile? _selectedImage;
   final ImagePicker _picker = ImagePicker();
-  bool _isLoading = false;
-
+  String sysImage = "";
+  String _baseUrl = BaseUrl.baseUrl;
   // Các loại công việc chăm sóc
   final List<String> careTaskTypes = [
     'Bón phân',
@@ -33,8 +44,10 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
     'Xử lý sâu bệnh'
   ];
 
-  // Trạng thái cây
-  String plantStatus = 'Đang tốt';
+  // Trạng thái cây - thay đổi để có giá trị mặc định
+  String plantStatus =
+      'Đang tốt'; // Gán giá trị mặc định từ danh sách statusOptions
+  String oldplantStatus = 'Đang tốt';
   final List<String> statusOptions = [
     'Đang tốt',
     'Cần chú ý',
@@ -48,83 +61,26 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
   }
 
   void _initializeData() {
-    setState(() {
-      _isLoading = true;
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final plantProvider = Provider.of<PlantProvider>(context, listen: false);
+      plantProvider.fetchPlantById(
+          widget.seasonId, widget.locationId, widget.plantid);
 
-    Future.delayed(Duration(milliseconds: 800), () {
-      if (widget.plantid == "1") {
-        plant = {
-          "id": widget.plantid,
-          "name": "Su hào",
-          "image": AppImages.suhao,
-          "status": "Đang tốt",
-          "address": "Vườn 1",
-          "note": "Loại cây dễ trồng, thích hợp khí hậu mát mẻ.",
-          "plantDate": DateTime(2024, 1, 15),
-          "harvestDate": null,
-          "yield": null,
-        };
-      } else if (widget.plantid == "2") {
-        plant = {
-          "id": widget.plantid,
-          "name": "Khoai tây",
-          "image": AppImages.khoaitay,
-          "status": "Cần chú ý",
-          "address": "Vườn 2",
-          "note": "Cần tưới nước đều đặn, tránh ánh nắng trực tiếp.",
-          "plantDate": DateTime(2024, 1, 10),
-          "harvestDate": null,
-          "yield": null,
-        };
-      } else if (widget.plantid == "3") {
-        plant = {
-          "id": widget.plantid,
-          "name": "Súp lơ",
-          "image": AppImages.supno,
-          "status": "Đang tốt",
-          "address": "Vườn 3",
-          "note": "Cần nhiều nước và ánh sáng đầy đủ.",
-          "plantDate": DateTime(2024, 2, 1),
-          "harvestDate": null,
-          "yield": null,
-        };
-      } else if (widget.plantid == "h1") {
-        // Dữ liệu cây đã thu hoạch
-        plant = {
-          "id": widget.plantid,
-          "name": "Su hào",
-          "image": AppImages.suhao,
-          "status": "Đã thu hoạch",
-          "address": "Vườn 1",
-          "note": "Loại cây dễ trồng, thích hợp khí hậu mát mẻ.",
-          "plantDate": DateTime(2024, 1, 15),
-          "harvestDate": DateTime(2024, 3, 20),
-          "yield": "12 kg",
-        };
-      } else {
-        plant = {
-          "id": widget.plantid,
-          "name": "Cây trồng ${widget.plantid}",
-          "image": AppImages.suhao,
-          "status": "Đang tốt",
-          "address": "Vườn ${widget.plantid}",
-          "note": "",
-          "plantDate": DateTime.now(),
-          "harvestDate": null,
-          "yield": null,
-        };
-      }
-
-      noteController.text = plant["note"] ?? "";
-      plantStatus = plant["status"] ?? "Đang tốt";
-      selectedDate = plant["plantDate"] ?? DateTime.now();
-      yieldController.text = plant["yield"] ?? "";
-
-      // Khởi tạo kế hoạch chăm sóc giả
-
-      setState(() {
-        _isLoading = false;
+      // Đợi cho đến khi dữ liệu được tải xong
+      plantProvider.addListener(() {
+        if (!plantProvider.loading && plantProvider.plant != null) {
+          setState(() {
+            // Nếu status từ API là một trong các lựa chọn, sử dụng nó
+            final apiStatus = plantProvider.plant?.status ?? '';
+            if (statusOptions.contains(apiStatus)) {
+              plantStatus = apiStatus;
+              oldplantStatus = apiStatus;
+            } else {
+              // Nếu không, vẫn giữ giá trị mặc định 'Đang tốt'
+              print('Status từ API không khớp với các lựa chọn: $apiStatus');
+            }
+          });
+        }
       });
     });
   }
@@ -240,8 +196,9 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                     return InkWell(
                       onTap: () {
                         setState(() {
-                          plant['image'] = defaultImages[index]['image'];
+                          sysImage = defaultImages[index]['image'];
                           _selectedImage = null;
+                          nameController.text = defaultImages[index]['name'];
                         });
                         Navigator.pop(context);
                       },
@@ -365,6 +322,70 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
     );
   }
 
+  Future<void> updatePlant() async {
+    if (_selectedImage == null &&
+        sysImage == "" &&
+        nameController.text.isEmpty &&
+        addressController.text.isEmpty &&
+        noteController.text.isEmpty &&
+        plantStatus == oldplantStatus) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Không có thay đổi nào để cập nhật'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    final plantProvider = Provider.of<PlantProvider>(context, listen: false);
+    final result = await plantProvider.updatePlant(
+      seasonId: widget.seasonId,
+      locationId: widget.locationId,
+      id: widget.plantid,
+      name: nameController.text != "" ? nameController.text : null,
+      image: _selectedImage != null ? File(_selectedImage!.path) : null,
+      sysImage: sysImage != "" ? sysImage : null,
+      status: plantStatus == oldplantStatus ? null : plantStatus,
+      note: noteController.text != "" ? noteController.text : null,
+      address: addressController.text != "" ? addressController.text : null,
+      startdate: null,
+      enddate: null,
+    );
+
+    if (result) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Cập nhật thành công'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.green,
+        ),
+      );
+      reset();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Thêm cây thất bại'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void reset() {
+    setState(() {
+      _selectedImage = null;
+      sysImage = "";
+      nameController.clear();
+      noteController.clear();
+      plantStatus = 'Đang tốt'; // Đặt lại giá trị mặc định
+      oldplantStatus = 'Đang tốt';
+      yieldController.clear();
+      addressController.clear();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
@@ -397,24 +418,22 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
             left: 16 * pix,
             right: 16 * pix,
             bottom: 0,
-            child: _isLoading
-                ? _buildLoadingIndicator()
-                : SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        _buildPlantInfoSection(context),
-                        SizedBox(height: 20 * pix),
-                        plantStatus != 'Đã thu hoạch'
-                            ? _buildCarePlanSection(context)
-                            : SizedBox(),
-                        SizedBox(height: 20 * pix),
-                        plantStatus != 'Đã thu hoạch'
-                            ? _buildDiseasePredictionSection(context)
-                            : SizedBox(),
-                        SizedBox(height: 36 * pix),
-                      ],
-                    ),
-                  ),
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildPlantInfoSection(context),
+                  SizedBox(height: 20 * pix),
+                  plantStatus != 'Đã thu hoạch'
+                      ? _buildCarePlanSection(context)
+                      : SizedBox(),
+                  SizedBox(height: 20 * pix),
+                  plantStatus != 'Đã thu hoạch'
+                      ? _buildDiseasePredictionSection(context)
+                      : SizedBox(),
+                  SizedBox(height: 36 * pix),
+                ],
+              ),
+            ),
           )
         ],
       ),
@@ -517,67 +536,59 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
     });
   }
 
-  Widget _buildLoadingIndicator() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(color: Colors.white),
-          SizedBox(height: 16),
-          Text(
-            'Đang tải dữ liệu...',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
   Widget _buildPlantInfoSection(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final pix = size.width / 375;
 
-    return Container(
-      width: size.width,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16 * pix),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPlantHeader(pix),
-          Divider(height: 1, thickness: 1, color: Colors.grey.withOpacity(0.2)),
-          _buildStatusSection(pix),
-          _buildPlantingDateSection(pix),
-          if (plantStatus == 'Đã thu hoạch') _buildHarvestInfoSection(pix),
-          _buildNotesSection(pix),
-          _buildActionButtons(pix),
-          SizedBox(height: 16 * pix),
-        ],
-      ),
-    );
+    return Consumer<PlantProvider>(builder: (context, plantProvider, child) {
+      if (plantProvider.loading || plantProvider.plant == null) {
+        return Center(
+          child: CircularProgressIndicator(),
+        );
+      }
+      final plant = plantProvider.plant!;
+      return Container(
+        width: size.width,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16 * pix),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildPlantHeader(pix, plant),
+            Divider(
+                height: 1, thickness: 1, color: Colors.grey.withOpacity(0.2)),
+            _buildStatusSection(pix, plant),
+            _buildPlantingDateSection(pix, plant),
+            if (plant.status == 'Đã thu hoạch')
+              _buildHarvestInfoSection(pix, plant),
+            _buildNotesSection(pix, plant),
+            plant.status != "Đã thu hoạch"
+                ? _buildActionButtons(pix, plant)
+                : SizedBox(),
+            SizedBox(height: 16 * pix),
+          ],
+        ),
+      );
+    });
   }
 
-  Widget _buildPlantHeader(double pix) {
+  Widget _buildPlantHeader(double pix, PlantModel plant) {
     return Padding(
       padding: EdgeInsets.all(16 * pix),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GestureDetector(
-            onTap: plantStatus != 'Đã thu hoạch'
+            onTap: plant.status != 'Đã thu hoạch'
                 ? () => _showImageOptions()
                 : null,
             child: Container(
@@ -597,7 +608,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                   ),
                 ],
               ),
-              child: _buildPlantImage(pix, 100),
+              child: _buildPlantImage(pix, 100, plant),
             ),
           ),
           SizedBox(width: 16 * pix),
@@ -606,7 +617,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  plant['name'] ?? 'Chưa đặt tên',
+                  plant.name ?? 'Chưa đặt tên',
                   style: TextStyle(
                     fontSize: 22 * pix,
                     fontWeight: FontWeight.bold,
@@ -624,7 +635,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                     ),
                     SizedBox(width: 4 * pix),
                     Text(
-                      plant['address'] ?? 'Chưa có địa chỉ',
+                      plant.address ?? 'Chưa có địa chỉ',
                       style: TextStyle(
                         fontSize: 14 * pix,
                         color: Colors.grey[600],
@@ -667,10 +678,6 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
 
   void _showEditPlantInfoDialog() {
     final pix = MediaQuery.of(context).size.width / 375;
-    final TextEditingController nameController =
-        TextEditingController(text: plant['name']);
-    final TextEditingController addressController =
-        TextEditingController(text: plant['address']);
 
     showDialog(
       context: context,
@@ -711,10 +718,6 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                setState(() {
-                  plant['name'] = nameController.text;
-                  plant['address'] = addressController.text;
-                });
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
@@ -731,7 +734,22 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
     );
   }
 
-  Widget _buildPlantImage(double pix, double size) {
+  Widget _buildPlantImage(double pix, double size, PlantModel plant) {
+    // Sử dụng giá trị mặc định chuỗi rỗng nếu image là null
+    String img = plant.image ?? "";
+    bool sys = false;
+
+    // Xử lý an toàn hơn với chuỗi
+    if (img.isNotEmpty && img.length > 1) {
+      if (img[1] == 'd') {
+        // Đảm bảo độ dài đủ trước khi thực hiện substring
+        if (img.length >= 17) {
+          img = img.substring(17);
+          sys = true;
+        }
+      }
+    }
+
     try {
       if (_selectedImage != null) {
         return FutureBuilder(
@@ -752,20 +770,60 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
             return _buildPlaceholderImage(pix, size);
           },
         );
-      } else if (plant['image'] != null) {
+      }
+
+      // Nếu có ảnh từ model
+      if (img.isNotEmpty) {
+        if (sys) {
+          // Ảnh hệ thống (asset)
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(12 * pix),
+            child: Image.asset(
+              img,
+              width: size * pix,
+              height: size * pix,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                print('Lỗi hiển thị ảnh asset: $error');
+                return _buildPlaceholderImage(pix, size);
+              },
+            ),
+          );
+        } else {
+          // Ảnh từ server
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(12 * pix),
+            child: Image.network(
+              _baseUrl + img,
+              width: size * pix,
+              height: size * pix,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                print('Lỗi hiển thị ảnh network: $error');
+                return _buildPlaceholderImage(pix, size);
+              },
+            ),
+          );
+        }
+      }
+
+      // Nếu không có ảnh nào, kiểm tra sysImg
+      if (plant.sysImg != null && plant.sysImg!.isNotEmpty) {
         return ClipRRect(
           borderRadius: BorderRadius.circular(12 * pix),
           child: Image.asset(
-            plant['image'],
+            plant.sysImg!,
             width: size * pix,
             height: size * pix,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) {
+              print('Lỗi hiển thị sysImg: $error');
               return _buildPlaceholderImage(pix, size);
             },
           ),
         );
       }
+
       return _buildPlaceholderImage(pix, size);
     } catch (e) {
       debugPrint('Lỗi hiển thị ảnh: $e');
@@ -803,7 +861,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
     );
   }
 
-  Widget _buildStatusSection(double pix) {
+  Widget _buildStatusSection(double pix, PlantModel plant) {
     return Padding(
       padding: EdgeInsets.all(16 * pix),
       child: Column(
@@ -818,69 +876,83 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
             ),
           ),
           SizedBox(height: 8 * pix),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12 * pix),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.withOpacity(0.5)),
-              borderRadius: BorderRadius.circular(8 * pix),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: plantStatus,
-                isExpanded: true,
-                items: statusOptions.map((String value) {
-                  Color statusColor;
-                  if (value == 'Đang tốt') {
-                    statusColor = Colors.green;
-                  } else if (value == 'Cần chú ý') {
-                    statusColor = Colors.orange;
-                  } else if (value == 'Có vấn đề') {
-                    statusColor = Colors.red;
-                  } else {
-                    statusColor = Colors.blue;
-                  }
-
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 12 * pix,
-                          height: 12 * pix,
-                          decoration: BoxDecoration(
-                            color: statusColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        SizedBox(width: 8 * pix),
-                        Text(
-                          value,
-                          style: TextStyle(
-                            color: statusColor,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-                onChanged: plantStatus != 'Đã thu hoạch'
-                    ? (newValue) {
-                        if (newValue != null) {
-                          if (newValue == 'Đã thu hoạch') {
-                            _showHarvestDialog();
-                          } else {
-                            setState(() {
-                              plantStatus = newValue;
-                              plant['status'] = newValue;
-                            });
-                          }
+          plant.status != "Đã thu hoạch"
+              ? Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12 * pix),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.withOpacity(0.5)),
+                    borderRadius: BorderRadius.circular(8 * pix),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: statusOptions.contains(plantStatus)
+                          ? plantStatus
+                          : statusOptions[0],
+                      isExpanded: true,
+                      items: statusOptions.map((String value) {
+                        Color statusColor;
+                        if (value == 'Đang tốt') {
+                          statusColor = Colors.green;
+                        } else if (value == 'Cần chú ý') {
+                          statusColor = Colors.orange;
+                        } else if (value == 'Có vấn đề') {
+                          statusColor = Colors.red;
+                        } else {
+                          statusColor = Colors.blue;
                         }
-                      }
-                    : null,
-              ),
-            ),
-          ),
+
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 12 * pix,
+                                height: 12 * pix,
+                                decoration: BoxDecoration(
+                                  color: statusColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              SizedBox(width: 8 * pix),
+                              Text(
+                                value,
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (newValue) {
+                        if (newValue != null) {
+                          setState(() {
+                            plantStatus = newValue;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                )
+              : Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12 * pix,
+                    vertical:
+                        10 * pix, // Thêm padding dọc để cải thiện giao diện
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.withOpacity(0.5)),
+                    borderRadius: BorderRadius.circular(8 * pix),
+                  ),
+                  child: Text(
+                    plant.status ?? "",
+                    style: TextStyle(
+                        fontSize: 16 * pix,
+                        fontFamily: 'BeVietnamPro',
+                        color: Colors.green),
+                  ),
+                ),
         ],
       ),
     );
@@ -1044,16 +1116,8 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                       );
                       return;
                     }
-                    setState(() {
-                      plantStatus = 'Đã thu hoạch';
-                      plant['status'] = 'Đã thu hoạch';
-                      plant['harvestDate'] = harvestDate;
-                      plant['yield'] = '${yieldController.text} kg';
-                      plant['quality'] = quality;
-                      this.yieldController.text = '${yieldController.text} kg';
-                    });
+                    setState(() {});
                     Navigator.pop(context);
-                    _savePlantingPlan();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
@@ -1071,7 +1135,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
     );
   }
 
-  Widget _buildPlantingDateSection(double pix) {
+  Widget _buildPlantingDateSection(double pix, PlantModel plant) {
     return Padding(
       padding: EdgeInsets.all(16 * pix),
       child: Column(
@@ -1086,68 +1150,68 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
             ),
           ),
           SizedBox(height: 8 * pix),
-          InkWell(
-            onTap: plantStatus != 'Đã thu hoạch'
-                ? () async {
-                    final DateTime? picked = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                      builder: (BuildContext context, Widget? child) {
-                        return Theme(
-                          data: ThemeData.light().copyWith(
-                            colorScheme: ColorScheme.light(
-                              primary: Colors.green,
-                              onPrimary: Colors.white,
-                            ),
-                          ),
-                          child: child!,
-                        );
-                      },
-                    );
-                    if (picked != null && picked != selectedDate) {
-                      setState(() {
-                        selectedDate = picked;
-                        plant['plantDate'] = picked;
-                      });
-                    }
-                  }
-                : null,
-            child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: 16 * pix,
-                vertical: 12 * pix,
-              ),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.withOpacity(0.5)),
-                borderRadius: BorderRadius.circular(8 * pix),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    DateFormat('dd/MM/yyyy').format(selectedDate),
-                    style: TextStyle(
-                      fontSize: 16 * pix,
-                      fontFamily: 'BeVietnamPro',
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ngày bắt đầu:',
+                      style: TextStyle(
+                        fontSize: 14 * pix,
+                        color: Colors.grey[600],
+                        fontFamily: 'BeVietnamPro',
+                      ),
                     ),
-                  ),
-                  Icon(
-                    Icons.calendar_today,
-                    size: 20 * pix,
-                    color: Colors.green,
-                  ),
-                ],
+                    SizedBox(height: 4 * pix),
+                    Text(
+                      plant.startDate != ""
+                          ? DateFormat('dd/MM/yyyy')
+                              .format(DateTime.parse(plant.startDate!))
+                          : 'Chưa có dữ liệu',
+                      style: TextStyle(
+                        fontSize: 16 * pix,
+                        fontFamily: 'BeVietnamPro',
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ngày kết thúc:',
+                      style: TextStyle(
+                        fontSize: 14 * pix,
+                        color: Colors.grey[600],
+                        fontFamily: 'BeVietnamPro',
+                      ),
+                    ),
+                    SizedBox(height: 4 * pix),
+                    Text(
+                      (plant.endDate != "" && plant.endDate != plant.startDate)
+                          ? DateFormat('dd/MM/yyyy')
+                              .format(DateTime.parse(plant.endDate!))
+                          : 'Chưa có dữ liệu',
+                      style: TextStyle(
+                        fontSize: 16 * pix,
+                        fontFamily: 'BeVietnamPro',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildHarvestInfoSection(double pix) {
+  Widget _buildHarvestInfoSection(double pix, PlantModel plant) {
     return Padding(
       padding: EdgeInsets.all(16 * pix),
       child: Column(
@@ -1178,9 +1242,9 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                     ),
                     SizedBox(height: 4 * pix),
                     Text(
-                      plant['harvestDate'] != null
+                      plant.endDate != ""
                           ? DateFormat('dd/MM/yyyy')
-                              .format(plant['harvestDate'])
+                              .format(DateTime.parse(plant.endDate!))
                           : 'Chưa có dữ liệu',
                       style: TextStyle(
                         fontSize: 16 * pix,
@@ -1204,7 +1268,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                     ),
                     SizedBox(height: 4 * pix),
                     Text(
-                      plant['yield'] ?? 'Chưa có dữ liệu',
+                      plant.unit ?? 'Chưa có dữ liệu',
                       style: TextStyle(
                         fontSize: 16 * pix,
                         fontFamily: 'BeVietnamPro',
@@ -1220,7 +1284,8 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
     );
   }
 
-  Widget _buildNotesSection(double pix) {
+  Widget _buildNotesSection(double pix, PlantModel plant) {
+    noteController.text = plant.note ?? '';
     return Padding(
       padding: EdgeInsets.all(16 * pix),
       child: Column(
@@ -1246,7 +1311,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
             ),
             maxLines: 3,
             onChanged: (value) {
-              plant['note'] = value;
+              plant.note = value;
             },
             enabled: plantStatus != 'Đã thu hoạch',
           ),
@@ -1255,18 +1320,16 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
     );
   }
 
-  Widget _buildActionButtons(double pix) {
+  Widget _buildActionButtons(double pix, PlantModel plant) {
     return Padding(
       padding: EdgeInsets.all(16 * pix),
       child: Row(
         children: [
           Expanded(
             child: ElevatedButton(
-              onPressed: plantStatus != 'Đã thu hoạch'
-                  ? () {
-                      _savePlantingPlan();
-                    }
-                  : null,
+              onPressed: () {
+                updatePlant();
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 padding: EdgeInsets.symmetric(vertical: 12 * pix),
@@ -1275,7 +1338,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                 ),
               ),
               child: Text(
-                'Xác nhận',
+                'Lưu thay đổi',
                 style: TextStyle(
                   fontSize: 16 * pix,
                   fontWeight: FontWeight.bold,
@@ -1292,19 +1355,20 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                 Navigator.pop(context);
               },
               style: OutlinedButton.styleFrom(
+                backgroundColor: Colors.orange,
                 padding: EdgeInsets.symmetric(vertical: 12 * pix),
-                side: BorderSide(color: Colors.grey),
+                side: BorderSide(color: Colors.orange),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8 * pix),
                 ),
               ),
               child: Text(
-                'Hủy',
+                'Đã thu hoạch',
                 style: TextStyle(
                   fontSize: 16 * pix,
                   fontWeight: FontWeight.bold,
                   fontFamily: 'BeVietnamPro',
-                  color: Colors.grey[700],
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -1312,52 +1376,6 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
         ],
       ),
     );
-  }
-
-  void _savePlantingPlan() {
-    setState(() {
-      _isLoading = true;
-    });
-
-    Future.delayed(Duration(seconds: 1), () {
-      setState(() {
-        _isLoading = false;
-      });
-
-      // Chuẩn bị dữ liệu image khi submit
-      String imageValue;
-      if (_selectedImage != null) {
-        // Nếu đã chọn ảnh từ thiết bị
-        imageValue = _selectedImage!.path;
-      } else if (plant["image"] != null) {
-        // Nếu là ảnh mặc định, thêm prefix "default:" để backend biết
-        String fullPath = plant["image"];
-        imageValue = "default:" + fullPath.split('/').last.split('.').first;
-      } else {
-        imageValue = "";
-      }
-
-      Navigator.pop(context, {
-        'plant': {
-          'id': widget.plantid,
-          'name': plant["name"],
-          'image': imageValue,
-          'status': plantStatus,
-          'note': noteController.text,
-          'plantDate': selectedDate,
-          'harvestDate': plant["harvestDate"],
-          'yield': plant["yield"],
-        },
-        'plantingDate': selectedDate,
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đã cập nhật thông tin cây'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    });
   }
 
   Widget _buildImageOptionButton({

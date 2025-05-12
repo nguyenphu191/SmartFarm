@@ -315,7 +315,8 @@ class _HistoryScreenState extends State<HistoryScreen>
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => DetailPlantScreen(plantid: plant['id']),
+              builder: (context) => DetailPlantScreen(
+                  seasonId: "", locationId: "", plantid: plant['id']),
             ),
           );
         },

@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:smart_farm/provider/location_provider.dart';
+import 'package:smart_farm/provider/plant_provider.dart';
 import 'package:smart_farm/provider/season_provider.dart';
 import 'package:smart_farm/res/imagesSF/AppImages.dart';
 import 'package:smart_farm/widget/top_bar.dart';
@@ -18,15 +21,16 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
   DateTime selectedDate = DateTime.now();
   TextEditingController plantNameController = TextEditingController();
   TextEditingController noteController = TextEditingController();
+  TextEditingController addressController = TextEditingController();
   String _stauts = 'Đang tốt';
   XFile? _selectedImage;
   final ImagePicker _picker = ImagePicker();
-  bool _isLoading = false;
   bool _isSeasonExpanded = false;
   bool _isLocationExpanded = false;
   String? _selectedSeasonId;
   String? _selectedLocationId;
   String systemImg = "";
+  bool _isLoading = false;
 
   // Các loại công việc chăm sóc
   final List<String> careTaskTypes = [
@@ -55,8 +59,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
       if (image != null) {
         setState(() {
           _selectedImage = image;
-          systemImg =
-              ""; // Clear the system image when a gallery image is selected
+          systemImg = "";
         });
       }
     } catch (e) {
@@ -84,8 +87,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
       if (image != null) {
         setState(() {
           _selectedImage = image;
-          systemImg =
-              ""; // Clear the system image when a camera image is selected
+          systemImg = "";
         });
       }
     } catch (e) {
@@ -160,8 +162,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                           plantNameController.text =
                               defaultImages[index]['name'];
                           systemImg = defaultImages[index]['image'];
-                          _selectedImage =
-                              null; // Clear the selected image when choosing a default image
+                          _selectedImage = null;
                         });
                         Navigator.pop(context);
                       },
@@ -283,6 +284,90 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
         );
       },
     );
+  }
+
+  Future<void> createPlant() async {
+    if (_selectedImage == null && systemImg.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Vui lòng chọn ảnh cho cây trồng'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    if (plantNameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Vui lòng nhập tên cây trồng'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    if (_selectedSeasonId == null || _selectedLocationId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Vui lòng chọn mùa vụ và địa điểm trồng'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    _isLoading = true;
+    final plantProvider = Provider.of<PlantProvider>(context, listen: false);
+    final result = await plantProvider.createPlant(
+      seasonId: _selectedSeasonId,
+      locationId: _selectedLocationId,
+      name: plantNameController.text,
+      image: _selectedImage != null ? File(_selectedImage!.path) : null,
+      sysImage: systemImg,
+      status: _stauts,
+      note: noteController.text,
+      startdate: DateFormat('yyyy-MM-dd').format(selectedDate),
+      enddate: "",
+      address: addressController.text,
+    );
+
+    if (result) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Thêm cây thành công'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.green,
+        ),
+      );
+      reset();
+    } else {
+      _isLoading = false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Thêm cây thất bại'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void reset() {
+    setState(() {
+      plantNameController.clear();
+      noteController.clear();
+      _selectedImage = null;
+      systemImg = "";
+      _stauts = 'Đang tốt';
+      selectedDate = DateTime.now();
+      _isSeasonExpanded = false;
+      _isLocationExpanded = false;
+      _selectedSeasonId = null;
+      _selectedLocationId = null;
+      _isLoading = false;
+      addressController.clear();
+    });
   }
 
   @override
@@ -975,7 +1060,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
           ),
           SizedBox(height: 8 * pix),
           TextField(
-            controller: noteController,
+            controller: addressController,
             decoration: InputDecoration(
               hintText: 'VD: Dãy 1, khu vực A...',
               border: OutlineInputBorder(
@@ -1028,7 +1113,9 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
         children: [
           Expanded(
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: () {
+                createPlant();
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 padding: EdgeInsets.symmetric(vertical: 12 * pix),

@@ -35,6 +35,14 @@ class MyApp extends StatelessWidget {
     return SafeArea(
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
+        title: 'Smart Farm App ',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          useMaterial3: true,
+        ),
+        routes: {
+          '/': (context) => const Loginscreen(),
+        },
         title: 'Smart Farm App',
         theme: AppTheme.lightTheme,
         home: Loginscreen(),

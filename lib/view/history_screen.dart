@@ -16,7 +16,7 @@ class _HistoryScreenState extends State<HistoryScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
   TextEditingController searchController = TextEditingController();
-  bool _isLoading = false;
+  bool _isLoading = false;  
 
   // Danh sách cây trồng đã thu hoạch
   List<Map<String, dynamic>> harvestedPlants = [

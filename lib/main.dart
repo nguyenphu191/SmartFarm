@@ -8,7 +8,6 @@ import 'package:smart_farm/provider/location_provider.dart';
 import 'package:smart_farm/provider/plant_provider.dart';
 import 'package:smart_farm/provider/season_provider.dart';
 import 'package:smart_farm/view/login_screen.dart';
-import 'package:smart_farm/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,9 +42,7 @@ class MyApp extends StatelessWidget {
         routes: {
           '/': (context) => const Loginscreen(),
         },
-        title: 'Smart Farm App',
-        theme: AppTheme.lightTheme,
-        home: Loginscreen(),
+        home: const Loginscreen(),
       ),
     );
   }

@@ -16,8 +16,8 @@ class Loginscreen extends StatefulWidget {
 
 class _LoginscreenState extends State<Loginscreen> {
   bool _obscureText = true;
-  TextEditingController _emailController = TextEditingController();
-  TextEditingController _passwordController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   Future<void> _login() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -26,7 +26,7 @@ class _LoginscreenState extends State<Loginscreen> {
 
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Vui lòng nhập email và mật khẩu')),
+        const SnackBar(content: Text('Vui lòng nhập email và mật khẩu')),
       );
       return;
     }
@@ -38,11 +38,11 @@ class _LoginscreenState extends State<Loginscreen> {
         MaterialPageRoute(builder: (context) => const HomeScreen()),
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đăng nhập thành công')),
+        const SnackBar(content: Text('Đăng nhập thành công')),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Đăng nhập thất bại')),
+        const SnackBar(content: Text('Đăng nhập thất bại')),
       );
     }
   }
@@ -56,7 +56,7 @@ class _LoginscreenState extends State<Loginscreen> {
       backgroundColor: AppColors.backgroundWhite,
       body: Stack(
         children: [
-          Positioned(
+          const Positioned(
             top: 0,
             left: 0,
             right: 0,
@@ -73,7 +73,7 @@ class _LoginscreenState extends State<Loginscreen> {
             child:
                 Consumer<AuthProvider>(builder: (context, authProvider, child) {
               if (authProvider.loading) {
-                return Center(
+                return const Center(
                   child: CircularProgressIndicator(),
                 );
               }
@@ -117,17 +117,17 @@ class _LoginscreenState extends State<Loginscreen> {
                               fillColor: Colors.white,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12 * pix),
-                                borderSide:
-                                    BorderSide(color: AppColors.borderGrey),
+                                borderSide: const BorderSide(
+                                    color: AppColors.borderGrey),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12 * pix),
-                                borderSide:
-                                    BorderSide(color: AppColors.borderGrey),
+                                borderSide: const BorderSide(
+                                    color: AppColors.borderGrey),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12 * pix),
-                                borderSide: BorderSide(
+                                borderSide: const BorderSide(
                                     color: AppColors.primaryGreen, width: 2),
                               ),
                               contentPadding: EdgeInsets.symmetric(
@@ -162,16 +162,16 @@ class _LoginscreenState extends State<Loginscreen> {
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12 * pix),
                                 borderSide:
-                                    BorderSide(color: AppColors.borderGrey),
+                                    const BorderSide(color: AppColors.borderGrey),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12 * pix),
                                 borderSide:
-                                    BorderSide(color: AppColors.borderGrey),
+                                    const BorderSide(color: AppColors.borderGrey),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12 * pix),
-                                borderSide: BorderSide(
+                                borderSide: const BorderSide(
                                     color: AppColors.primaryGreen, width: 2),
                               ),
                               contentPadding: EdgeInsets.symmetric(
@@ -245,7 +245,7 @@ class _LoginscreenState extends State<Loginscreen> {
                           SizedBox(height: 24 * pix),
                           Row(
                             children: [
-                              Expanded(
+                              const Expanded(
                                 child: Divider(
                                   color: AppColors.borderGrey,
                                   thickness: 1,
@@ -263,7 +263,7 @@ class _LoginscreenState extends State<Loginscreen> {
                                   ),
                                 ),
                               ),
-                              Expanded(
+                              const Expanded(
                                 child: Divider(
                                   color: AppColors.borderGrey,
                                   thickness: 1,

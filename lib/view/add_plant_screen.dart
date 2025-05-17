@@ -29,8 +29,10 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
   bool _isLocationExpanded = false;
   String? _selectedSeasonId;
   String? _selectedLocationId;
+  String? _loadedLocationsForSeasonId;
   String systemImg = "";
   bool _isLoading = false;
+  bool _isLoadingLocations = false;
 
   // Các loại công việc chăm sóc
   final List<String> careTaskTypes = [
@@ -56,20 +58,22 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
         imageQuality: 85,
       );
 
-      if (image != null) {
+      if (image != null && mounted) {
         setState(() {
           _selectedImage = image;
           systemImg = "";
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Không thể chọn ảnh: ${e.toString()}'),
-          duration: Duration(seconds: 2),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Không thể chọn ảnh: ${e.toString()}'),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       debugPrint('Lỗi khi chọn ảnh: $e');
     }
   }
@@ -84,20 +88,22 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
         imageQuality: 85,
       );
 
-      if (image != null) {
+      if (image != null && mounted) {
         setState(() {
           _selectedImage = image;
           systemImg = "";
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Không thể chụp ảnh: ${e.toString()}'),
-          duration: Duration(seconds: 2),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Không thể chụp ảnh: ${e.toString()}'),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       debugPrint('Lỗi khi chụp ảnh: $e');
     }
   }
@@ -119,7 +125,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
@@ -158,13 +164,15 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                   itemBuilder: (context, index) {
                     return InkWell(
                       onTap: () {
-                        setState(() {
-                          plantNameController.text =
-                              defaultImages[index]['name'];
-                          systemImg = defaultImages[index]['image'];
-                          _selectedImage = null;
-                        });
                         Navigator.pop(context);
+                        if (mounted) {
+                          setState(() {
+                            plantNameController.text =
+                                defaultImages[index]['name'];
+                            systemImg = defaultImages[index]['image'];
+                            _selectedImage = null;
+                          });
+                        }
                       },
                       child: Column(
                         children: [
@@ -223,7 +231,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
   void _showImageOptions() {
     showModalBottomSheet(
       context: context,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
@@ -289,7 +297,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
   Future<void> createPlant() async {
     if (_selectedImage == null && systemImg.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Vui lòng chọn ảnh cho cây trồng'),
           duration: Duration(seconds: 2),
           backgroundColor: Colors.red,
@@ -309,7 +317,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     }
     if (_selectedSeasonId == null || _selectedLocationId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Vui lòng chọn mùa vụ và địa điểm trồng'),
           duration: Duration(seconds: 2),
           backgroundColor: Colors.red,
@@ -317,7 +325,13 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
       );
       return;
     }
-    _isLoading = true;
+
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
+
     final plantProvider = Provider.of<PlantProvider>(context, listen: false);
     final result = await plantProvider.createPlant(
       seasonId: _selectedSeasonId,
@@ -340,11 +354,15 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      reset();
+      resetPlantForm();
     } else {
-      _isLoading = false;
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Thêm cây thất bại'),
           duration: Duration(seconds: 2),
           backgroundColor: Colors.red,
@@ -353,31 +371,39 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     }
   }
 
-  void reset() {
-    setState(() {
-      plantNameController.clear();
-      noteController.clear();
-      _selectedImage = null;
-      systemImg = "";
-      _stauts = 'Đang tốt';
-      selectedDate = DateTime.now();
-      _isSeasonExpanded = false;
-      _isLocationExpanded = false;
-      _selectedSeasonId = null;
-      _selectedLocationId = null;
-      _isLoading = false;
-      addressController.clear();
-    });
+  void resetPlantForm() {
+    if (mounted) {
+      setState(() {
+        plantNameController.clear();
+        noteController.clear();
+        addressController.clear();
+        _stauts = 'Đang tốt';
+        selectedDate = DateTime.now();
+        _selectedImage = null;
+        systemImg = "";
+        _isSeasonExpanded = false;
+        _isLocationExpanded = false;
+        _selectedSeasonId = null;
+        _selectedLocationId = null;
+        _loadedLocationsForSeasonId = null;
+        _isLoading = false;
+        _isLoadingLocations = false;
+        carePlan = [];
+      });
+    }
   }
 
   @override
   void initState() {
     super.initState();
 
+    // Chỉ tải dữ liệu mùa vụ khi khởi tạo màn hình
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final seasonProvider =
           Provider.of<SeasonProvider>(context, listen: false);
       seasonProvider.fetchSeasons();
+
+      // Không tải dữ liệu vị trí cho đến khi người dùng chọn mùa vụ
       final locationProvider =
           Provider.of<LocationProvider>(context, listen: false);
       locationProvider.reset();
@@ -385,9 +411,27 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
   }
 
   Future<void> fetchLocations(String seasonId) async {
-    final locationProvider =
-        Provider.of<LocationProvider>(context, listen: false);
-    await locationProvider.fetchLocations(seasonId);
+    // Kiểm tra xem đã tải dữ liệu cho mùa vụ này chưa
+    if (_loadedLocationsForSeasonId != seasonId) {
+      // Kiểm tra xem widget còn mounted không trước khi gọi setState
+      if (mounted) {
+        setState(() {
+          _isLoadingLocations = true;
+        });
+      }
+
+      final locationProvider =
+          Provider.of<LocationProvider>(context, listen: false);
+      await locationProvider.fetchLocations(seasonId);
+
+      // Kiểm tra xem widget còn mounted không trước khi gọi setState
+      if (mounted) {
+        setState(() {
+          _loadedLocationsForSeasonId = seasonId;
+          _isLoadingLocations = false;
+        });
+      }
+    }
   }
 
   @override
@@ -398,7 +442,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned(
+          const Positioned(
             top: 0,
             left: 0,
             right: 0,
@@ -441,7 +485,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
   }
 
   Widget _buildLoadingIndicator() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -473,7 +517,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
-            offset: Offset(0, 5),
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -847,6 +891,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                       onTap: () {
                         setState(() {
                           _selectedSeasonId = season.id;
+                          _isSeasonExpanded = false;
                         });
                         fetchLocations(season.id);
                       },
@@ -898,8 +943,11 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                                 onChanged: (value) {
                                   setState(() {
                                     _selectedSeasonId = value;
+                                    _isSeasonExpanded = false;
                                   });
-                                  fetchLocations(value!);
+                                  if (value != null) {
+                                    fetchLocations(value);
+                                  }
                                 },
                                 activeColor: Colors.green,
                               ),
@@ -928,6 +976,15 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
         children: [
           InkWell(
             onTap: () {
+              if (_selectedSeasonId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Vui lòng chọn mùa vụ trước'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
+              }
               setState(() {
                 _isLocationExpanded = !_isLocationExpanded;
               });
@@ -954,9 +1011,35 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
           SizedBox(height: 8 * pix),
           Consumer<LocationProvider>(
             builder: (context, locationProvider, child) {
-              if (locationProvider.loading) {
+              if (_isLoadingLocations) {
                 return Center(
-                  child: CircularProgressIndicator(),
+                  child: Column(
+                    children: [
+                      CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                      ),
+                      SizedBox(height: 8 * pix),
+                      Text(
+                        'Đang tải dữ liệu vị trí...',
+                        style: TextStyle(
+                          fontSize: 14 * pix,
+                          fontStyle: FontStyle.italic,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              } else if (_selectedSeasonId == null) {
+                return Center(
+                  child: Text(
+                    'Vui lòng chọn mùa vụ trước',
+                    style: TextStyle(
+                      fontSize: 16 * pix,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey[600],
+                    ),
+                  ),
                 );
               } else if (locationProvider.locations.isEmpty) {
                 return Center(
@@ -1424,7 +1507,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
       },
     );
 
-    if (pickedDate != null) {
+    if (pickedDate != null && mounted) {
       final task = await showDialog<String>(
         context: context,
         builder: (context) {
@@ -1494,7 +1577,7 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
         },
       );
 
-      if (task != null) {
+      if (task != null && mounted) {
         setState(() {
           carePlan.add({
             'date': pickedDate,
@@ -1594,12 +1677,6 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
                 ),
                 ElevatedButton(
                   onPressed: () {
-                    this.setState(() {
-                      carePlan[index]['date'] = newDate;
-                      carePlan[index]['task'] = newTask;
-                      carePlan[index]['completed'] = isCompleted;
-                      carePlan.sort((a, b) => a['date'].compareTo(b['date']));
-                    });
                     Navigator.pop(context, true);
                   },
                   style: ElevatedButton.styleFrom(
@@ -1617,7 +1694,14 @@ class _AddPlantScreenState extends State<AddPlantScreen> {
       },
     );
 
-    if (result == true) {
+    if (result == true && mounted) {
+      setState(() {
+        carePlan[index]['date'] = newDate;
+        carePlan[index]['task'] = newTask;
+        carePlan[index]['completed'] = isCompleted;
+        carePlan.sort((a, b) => a['date'].compareTo(b['date']));
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Đã cập nhật công việc'),

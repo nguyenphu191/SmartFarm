@@ -1,46 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:smart_farm/provider/sensor_provider.dart';
+import 'package:smart_farm/theme/app_colors.dart';
 import 'package:smart_farm/widget/bottom_bar.dart';
 import 'package:smart_farm/widget/top_bar.dart';
 
 class SettingSensorScreen extends StatefulWidget {
+  const SettingSensorScreen({Key? key}) : super(key: key);
+
   @override
-  _SettingSensorScreenState createState() => _SettingSensorScreenState();
+  State<SettingSensorScreen> createState() => _SettingSensorScreenState();
 }
 
 class _SettingSensorScreenState extends State<SettingSensorScreen> {
-  // Tần suất lấy dữ liệu (phút)
-  String _selectedFrequency = '15'; // Giá trị mặc định
-  final List<String> _frequencyOptions = ['5', '10', '15', '30', '60'];
-
-  // Ngưỡng cảnh báo (hard-coded, có thể tích hợp với server sau)
-  double _tempHigh = 35.0;
-  double _tempLow = 15.0;
-  double _humidityLow = 30.0;
-  double _lightHigh = 800.0;
-  double _co2High = 1000.0;
-
-  // Controller cho form kết nối thiết bị
-  final _deviceIdController = TextEditingController();
-  final _deviceNameController = TextEditingController();
-  final _deviceIpController = TextEditingController();
-
-  @override
-  void dispose() {
-    _deviceIdController.dispose();
-    _deviceNameController.dispose();
-    _deviceIpController.dispose();
-    super.dispose();
-  }
+  int _selectedInterval = 10000; // Mặc định 10s
 
   @override
   Widget build(BuildContext context) {
-    final Size size = MediaQuery.of(context).size;
+    final size = MediaQuery.of(context).size;
     final pix = size.width / 375;
+    final sensorProvider = Provider.of<SensorProvider>(context);
 
     return Scaffold(
       body: Stack(
         children: [
-          // TopBar
           const Positioned(
             child: TopBar(
               title: "Cài đặt cảm biến",
@@ -50,7 +33,6 @@ class _SettingSensorScreenState extends State<SettingSensorScreen> {
             left: 0,
             right: 0,
           ),
-          // Main content
           Positioned(
             top: 70 * pix,
             left: 0,
@@ -58,401 +40,419 @@ class _SettingSensorScreenState extends State<SettingSensorScreen> {
             bottom: 0,
             child: Container(
               width: size.width,
-              height: size.height - 100 * pix,
+              height: size.height - 70 * pix,
               decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xff47BFDF), Color(0xff4A91FF)],
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                ),
+                gradient: AppColors.backgroundGradient,
               ),
               child: SingleChildScrollView(
-                child: Padding(
-                  padding: EdgeInsets.all(16 * pix),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Tần suất lấy dữ liệu
-                      _buildSectionTitle('Tần suất lấy dữ liệu', pix),
-                      _buildFrequencySelector(pix),
-                      SizedBox(height: 24 * pix),
+                padding: EdgeInsets.all(16 * pix),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Thông tin kết nối
+                    _buildConnectionInfo(pix, sensorProvider),
 
-                      // Ngưỡng cảnh báo
-                      _buildSectionTitle('Ngưỡng cảnh báo', pix),
-                      _buildThresholdSliders(pix),
-                      SizedBox(height: 24 * pix),
+                    SizedBox(height: 24 * pix),
 
-                      // Kết nối thiết bị mới
-                      _buildSectionTitle('Kết nối thiết bị mới', pix),
-                      _buildDeviceConnectionForm(pix),
-                      SizedBox(height: 24 * pix),
+                    // Cài đặt tần suất gửi dữ liệu
+                    _buildIntervalSettings(pix, sensorProvider),
 
-                      // Nút lưu cài đặt
-                      Center(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            _saveSettings();
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 32 * pix,
-                              vertical: 12 * pix,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12 * pix),
-                            ),
-                          ),
-                          child: Text(
-                            'Lưu cài đặt',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16 * pix,
-                              fontFamily: 'BeVietnamPro',
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 80 * pix), // Space for bottom bar
-                    ],
+                    SizedBox(height: 24 * pix),
+
+                    // Hiệu chỉnh cảm biến
+                    _buildSensorCalibration(pix, sensorProvider),
+
+                    SizedBox(height: 24 * pix),
+
+                    // Thông tin thiết bị
+                    _buildDeviceInfo(pix, sensorProvider),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Bottombar(type: 2),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConnectionInfo(double pix, SensorProvider provider) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16 * pix),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(16 * pix),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Thông tin kết nối',
+              style: TextStyle(
+                fontSize: 18 * pix,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'BeVietnamPro',
+              ),
+            ),
+            SizedBox(height: 16 * pix),
+            _buildInfoRow(
+                'Trạng thái:',
+                provider.connectionStatus,
+                pix,
+                provider.isConnected
+                    ? AppColors.statusGood
+                    : AppColors.statusDanger),
+            SizedBox(height: 8 * pix),
+            _buildInfoRow(
+                'Broker:', '${provider.broker}:${provider.port}', pix),
+            SizedBox(height: 8 * pix),
+            _buildInfoRow('Topic chính:', provider.mainTopic, pix),
+            SizedBox(height: 16 * pix),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: provider.isConnecting ? null : provider.reconnect,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryGreen,
+                  padding: EdgeInsets.symmetric(vertical: 12 * pix),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8 * pix),
+                  ),
+                ),
+                child: Text(
+                  provider.isConnecting ? 'Đang kết nối...' : 'Kết nối lại',
+                  style: TextStyle(
+                    fontSize: 16 * pix,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'BeVietnamPro',
                   ),
                 ),
               ),
             ),
-          ),
-          // BottomBar
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title, double pix) {
-    return Text(
-      title,
-      style: TextStyle(
-        fontSize: 20 * pix,
-        fontWeight: FontWeight.bold,
-        color: Colors.white,
-        fontFamily: 'BeVietnamPro',
-      ),
-    );
-  }
-
-  Widget _buildFrequencySelector(double pix) {
-    return Container(
-      margin: EdgeInsets.only(top: 8 * pix),
-      padding: EdgeInsets.symmetric(horizontal: 16 * pix),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12 * pix),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedFrequency,
-          isExpanded: true,
-          icon: Icon(Icons.arrow_drop_down, color: Colors.white),
-          dropdownColor: Colors.white.withOpacity(0.9),
-          items: _frequencyOptions.map((String value) {
-            return DropdownMenuItem<String>(
-              value: value,
-              child: Text(
-                'Mỗi $value phút',
-                style: TextStyle(
-                  fontSize: 16 * pix,
-                  color: Colors.black,
-                  fontFamily: 'BeVietnamPro',
-                ),
-              ),
-            );
-          }).toList(),
-          onChanged: (String? newValue) {
-            setState(() {
-              _selectedFrequency = newValue!;
-            });
-          },
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildThresholdSliders(double pix) {
-    return Container(
-      padding: EdgeInsets.all(16 * pix),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+  Widget _buildIntervalSettings(double pix, SensorProvider provider) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16 * pix),
       ),
-      child: Column(
-        children: [
-          _buildSlider(
-            label: 'Nhiệt độ cao',
-            value: _tempHigh,
-            min: 20.0,
-            max: 45.0,
-            unit: '°C',
-            pix: pix,
-            onChanged: (value) {
-              setState(() {
-                _tempHigh = value;
-              });
-            },
-          ),
-          _buildSlider(
-            label: 'Nhiệt độ thấp',
-            value: _tempLow,
-            min: 5.0,
-            max: 25.0,
-            unit: '°C',
-            pix: pix,
-            onChanged: (value) {
-              setState(() {
-                _tempLow = value;
-              });
-            },
-          ),
-          _buildSlider(
-            label: 'Độ ẩm thấp',
-            value: _humidityLow,
-            min: 10.0,
-            max: 50.0,
-            unit: '%',
-            pix: pix,
-            onChanged: (value) {
-              setState(() {
-                _humidityLow = value;
-              });
-            },
-          ),
-          _buildSlider(
-            label: 'Ánh sáng cao',
-            value: _lightHigh,
-            min: 500.0,
-            max: 1500.0,
-            unit: 'lux',
-            pix: pix,
-            onChanged: (value) {
-              setState(() {
-                _lightHigh = value;
-              });
-            },
-          ),
-          _buildSlider(
-            label: 'CO2 cao',
-            value: _co2High,
-            min: 400.0,
-            max: 2000.0,
-            unit: 'ppm',
-            pix: pix,
-            onChanged: (value) {
-              setState(() {
-                _co2High = value;
-              });
-            },
-          ),
-        ],
+      child: Padding(
+        padding: EdgeInsets.all(16 * pix),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Tần suất gửi dữ liệu',
+              style: TextStyle(
+                fontSize: 18 * pix,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'BeVietnamPro',
+              ),
+            ),
+            SizedBox(height: 16 * pix),
+            Text(
+              'Chọn thời gian giữa các lần gửi dữ liệu từ cảm biến:',
+              style: TextStyle(
+                fontSize: 14 * pix,
+                fontFamily: 'BeVietnamPro',
+              ),
+            ),
+            SizedBox(height: 16 * pix),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildIntervalButton(context, 5000, '5 giây', pix, provider),
+                _buildIntervalButton(context, 10000, '10 giây', pix, provider),
+                _buildIntervalButton(context, 30000, '30 giây', pix, provider),
+              ],
+            ),
+            SizedBox(height: 8 * pix),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildIntervalButton(context, 60000, '1 phút', pix, provider),
+                _buildIntervalButton(context, 300000, '5 phút', pix, provider),
+                _buildIntervalButton(context, 600000, '10 phút', pix, provider),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildSlider({
-    required String label,
-    required double value,
-    required double min,
-    required double max,
-    required String unit,
-    required double pix,
-    required Function(double) onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildIntervalButton(BuildContext context, int interval, String label,
+      double pix, SensorProvider provider) {
+    bool isSelected = _selectedInterval == interval;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedInterval = interval;
+        });
+        provider.updateSendInterval(interval);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã cập nhật tần suất gửi dữ liệu: $label'),
+            backgroundColor: AppColors.primaryGreen,
+          ),
+        );
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12 * pix, vertical: 8 * pix),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primaryGreen : Colors.white,
+          borderRadius: BorderRadius.circular(8 * pix),
+          border: Border.all(
+            color: isSelected ? AppColors.primaryGreen : AppColors.borderGrey,
+            width: 1.5,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primaryGreen.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  )
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : AppColors.textDark,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14 * pix,
+            fontFamily: 'BeVietnamPro',
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSensorCalibration(double pix, SensorProvider provider) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16 * pix),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(16 * pix),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              label,
+              'Hiệu chỉnh cảm biến',
               style: TextStyle(
-                fontSize: 16 * pix,
-                color: Colors.white,
+                fontSize: 18 * pix,
+                fontWeight: FontWeight.bold,
                 fontFamily: 'BeVietnamPro',
               ),
             ),
+            SizedBox(height: 16 * pix),
             Text(
-              '${value.toStringAsFixed(1)}$unit',
+              'Hiệu chỉnh cảm biến khí MQ02 để đảm bảo độ chính xác. Quá trình này sẽ mất khoảng 20 giây.',
               style: TextStyle(
-                fontSize: 16 * pix,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+                fontSize: 14 * pix,
                 fontFamily: 'BeVietnamPro',
+              ),
+            ),
+            SizedBox(height: 16 * pix),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  provider.calibrateMQ02();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Đang hiệu chỉnh cảm biến khí...'),
+                      backgroundColor: AppColors.primaryBlue,
+                      duration: Duration(seconds: 20),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryBlue,
+                  padding: EdgeInsets.symmetric(vertical: 12 * pix),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8 * pix),
+                  ),
+                ),
+                child: Text(
+                  'Bắt đầu hiệu chỉnh',
+                  style: TextStyle(
+                    fontSize: 16 * pix,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'BeVietnamPro',
+                  ),
+                ),
               ),
             ),
           ],
         ),
-        Slider(
-          value: value,
-          min: min,
-          max: max,
-          divisions: ((max - min) * 10).toInt(),
-          label: '${value.toStringAsFixed(1)}$unit',
-          activeColor: Colors.blue,
-          inactiveColor: Colors.white.withOpacity(0.5),
-          onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _buildDeviceInfo(double pix, SensorProvider provider) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16 * pix),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(16 * pix),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Thông tin thiết bị',
+              style: TextStyle(
+                fontSize: 18 * pix,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'BeVietnamPro',
+              ),
+            ),
+            SizedBox(height: 16 * pix),
+            _buildInfoRow('Thiết bị:', 'ESP32 Sensors', pix),
+            SizedBox(height: 8 * pix),
+            _buildInfoRow('ID:', 'ESP32_SENSORS_001', pix),
+            SizedBox(height: 8 * pix),
+            _buildInfoRow('Cảm biến:', 'DHT11, MQ02, Light Sensor', pix),
+            SizedBox(height: 8 * pix),
+            _buildInfoRow('Firmware:', 'v1.0.0', pix),
+            SizedBox(height: 16 * pix),
+            _buildSensorTable(pix),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSensorTable(double pix) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Thông tin cảm biến',
+          style: TextStyle(
+            fontSize: 16 * pix,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'BeVietnamPro',
+          ),
         ),
         SizedBox(height: 8 * pix),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.borderGrey),
+            borderRadius: BorderRadius.circular(8 * pix),
+          ),
+          child: Table(
+            border: TableBorder.all(
+              color: AppColors.borderGrey,
+              width: 1,
+              borderRadius: BorderRadius.circular(8 * pix),
+            ),
+            columnWidths: const {
+              0: FlexColumnWidth(1),
+              1: FlexColumnWidth(1),
+              2: FlexColumnWidth(2),
+            },
+            children: [
+              _buildTableRow(
+                ['Cảm biến', 'Loại', 'Thông số'],
+                isHeader: true,
+                pix: pix,
+              ),
+              _buildTableRow(
+                [
+                  'Nhiệt độ',
+                  'DHT11',
+                  'Phạm vi: 0°C ~ 50°C\nĐộ chính xác: ±2°C'
+                ],
+                pix: pix,
+              ),
+              _buildTableRow(
+                ['Độ ẩm', 'DHT11', 'Phạm vi: 20% ~ 90%\nĐộ chính xác: ±5%'],
+                pix: pix,
+              ),
+              _buildTableRow(
+                ['Ánh sáng', 'LDR', 'Phạm vi: 0 ~ 10000 lux'],
+                pix: pix,
+              ),
+              _buildTableRow(
+                [
+                  'Khí gas',
+                  'MQ02',
+                  'Phạm vi: 300 ~ 10000 ppm\nKhí: LPG, Propane, Hydrogen'
+                ],
+                pix: pix,
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildDeviceConnectionForm(double pix) {
-    return Container(
-      padding: EdgeInsets.all(16 * pix),
+  TableRow _buildTableRow(List<String> cells,
+      {bool isHeader = false, required double pix}) {
+    return TableRow(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(16 * pix),
+        color: isHeader ? AppColors.primaryGreen.withOpacity(0.1) : null,
       ),
-      child: Column(
-        children: [
-          TextField(
-            controller: _deviceIdController,
-            style: TextStyle(color: Colors.white, fontFamily: 'BeVietnamPro'),
-            decoration: InputDecoration(
-              labelText: 'ID thiết bị',
-              labelStyle: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontFamily: 'BeVietnamPro',
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.5)),
-                borderRadius: BorderRadius.circular(8 * pix),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.blue),
-                borderRadius: BorderRadius.circular(8 * pix),
-              ),
+      children: cells.map((cell) {
+        return Padding(
+          padding: EdgeInsets.all(8 * pix),
+          child: Text(
+            cell,
+            style: TextStyle(
+              fontSize: isHeader ? 14 * pix : 12 * pix,
+              fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
+              fontFamily: 'BeVietnamPro',
             ),
           ),
-          SizedBox(height: 16 * pix),
-          TextField(
-            controller: _deviceNameController,
-            style: TextStyle(color: Colors.white, fontFamily: 'BeVietnamPro'),
-            decoration: InputDecoration(
-              labelText: 'Tên thiết bị',
-              labelStyle: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontFamily: 'BeVietnamPro',
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.5)),
-                borderRadius: BorderRadius.circular(8 * pix),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.blue),
-                borderRadius: BorderRadius.circular(8 * pix),
-              ),
-            ),
-          ),
-          SizedBox(height: 16 * pix),
-          TextField(
-            controller: _deviceIpController,
-            style: TextStyle(color: Colors.white, fontFamily: 'BeVietnamPro'),
-            decoration: InputDecoration(
-              labelText: 'Địa chỉ IP',
-              labelStyle: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontFamily: 'BeVietnamPro',
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.white.withOpacity(0.5)),
-                borderRadius: BorderRadius.circular(8 * pix),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Colors.blue),
-                borderRadius: BorderRadius.circular(8 * pix),
-              ),
-            ),
-          ),
-          SizedBox(height: 16 * pix),
-          ElevatedButton(
-            onPressed: () {
-              _connectNewDevice();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              padding: EdgeInsets.symmetric(
-                horizontal: 24 * pix,
-                vertical: 12 * pix,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12 * pix),
-              ),
-            ),
-            child: Text(
-              'Kết nối thiết bị',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16 * pix,
-                fontFamily: 'BeVietnamPro',
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
 
-  void _saveSettings() {
-    // Lưu cài đặt (hiện tại in ra console, sau này có thể gửi lên server)
-    print('Tần suất lấy dữ liệu: $_selectedFrequency phút');
-    print('Ngưỡng cảnh báo:');
-    print('Nhiệt độ cao: $_tempHigh°C');
-    print('Nhiệt độ thấp: $_tempLow°C');
-    print('Độ ẩm thấp: $_humidityLow%');
-    print('Ánh sáng cao: $_lightHigh lux');
-    print('CO2 cao: $_co2High ppm');
-
-    // Hiển thị thông báo lưu thành công
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đã lưu cài đặt thành công'),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  void _connectNewDevice() {
-    final deviceId = _deviceIdController.text;
-    final deviceName = _deviceNameController.text;
-    final deviceIp = _deviceIpController.text;
-
-    if (deviceId.isEmpty || deviceName.isEmpty || deviceIp.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Vui lòng nhập đầy đủ thông tin thiết bị'),
-          backgroundColor: Colors.red,
+  Widget _buildInfoRow(String label, String value, double pix,
+      [Color? valueColor]) {
+    return Row(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14 * pix,
+            fontWeight: FontWeight.w500,
+            fontFamily: 'BeVietnamPro',
+            color: AppColors.textGrey,
+          ),
         ),
-      );
-      return;
-    }
-
-    // Giả lập kết nối thiết bị (in ra console, sau này có thể gửi lên server)
-    print('Kết nối thiết bị mới:');
-    print('ID: $deviceId');
-    print('Tên: $deviceName');
-    print('IP: $deviceIp');
-
-    // Xóa form sau khi kết nối
-    _deviceIdController.clear();
-    _deviceNameController.clear();
-    _deviceIpController.clear();
-
-    // Hiển thị thông báo kết nối thành công
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đã kết nối thiết bị "$deviceName" thành công'),
-        backgroundColor: Colors.green,
-      ),
+        SizedBox(width: 8 * pix),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14 * pix,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'BeVietnamPro',
+            color: valueColor ?? AppColors.textDark,
+          ),
+        ),
+      ],
     );
   }
 }

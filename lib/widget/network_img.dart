@@ -8,17 +8,17 @@ class NetworkImageWidget extends StatefulWidget {
   final double height;
 
   const NetworkImageWidget({
-    Key? key,
+    super.key,
     required this.url,
     required this.width,
     required this.height,
-  }) : super(key: key);
+  });
 
   @override
-  _NetworkImageWidgetState createState() => _NetworkImageWidgetState();
+  NetworkImageWidgetState createState() => NetworkImageWidgetState();
 }
 
-class _NetworkImageWidgetState extends State<NetworkImageWidget> {
+class NetworkImageWidgetState extends State<NetworkImageWidget> {
   Uint8List? _imageBytes;
   bool _isLoading = true;
   String? _error;
@@ -60,11 +60,11 @@ class _NetworkImageWidgetState extends State<NetworkImageWidget> {
   @override
   Widget build(BuildContext context) {
     final pix = MediaQuery.of(context).size.width / 375;
-    return Container(
+    return SizedBox(
       width: widget.width * pix,
       height: widget.height * pix,
       child: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Container(
                   color: Colors.grey[200],

@@ -21,9 +21,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   TextEditingController searchController = TextEditingController();
-  String _baseUrl = BaseUrl.baseUrl;
+  final _baseUrl = BaseUrl.baseUrl;
   late AnimationController _controller;
   late Animation<double> _animation;
+  @override
   void initState() {
     super.initState();
     _controller = AnimationController(
@@ -36,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
     _controller.forward();
 
-    // Initialize data after widget is built
+    // khởi tạo data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final plantProvider = Provider.of<PlantProvider>(context, listen: false);
       plantProvider.fetchPlants(false);
@@ -46,6 +47,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   List<PlantModel> allPlants = [];
 
+  // lọc cây trồng
   List<PlantModel> get filteredPlants {
     if (searchController.text.isEmpty) {
       return allPlants;
@@ -68,18 +70,17 @@ class _HomeScreenState extends State<HomeScreen>
     final pix = size.width / 375;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundWhite,
       body: Container(
         width: size.width,
         height: size.height,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: AppColors.backgroundGradient,
         ),
         child: Stack(
           children: [
             Consumer<PlantProvider>(builder: (context, plantProvider, child) {
               if (plantProvider.loading) {
-                return Center(
+                return const Center(
                   child: CircularProgressIndicator(),
                 );
               }
@@ -118,14 +119,14 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                           decoration: InputDecoration(
                             hintText: 'Tìm kiếm cây trồng',
-                            hintStyle: TextStyle(color: AppColors.textGrey),
-                            prefixIcon: Icon(
+                            hintStyle: const TextStyle(color: AppColors.textGrey),
+                            prefixIcon: const Icon(
                               Icons.search,
                               color: AppColors.textGrey,
                             ),
                             suffixIcon: searchController.text.isNotEmpty
                                 ? IconButton(
-                                    icon: Icon(
+                                    icon: const Icon(
                                       Icons.clear,
                                       color: AppColors.textGrey,
                                     ),
@@ -179,6 +180,7 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               );
             }),
+
             _buildHeader(size, pix),
             Positioned(
               bottom: 0,
@@ -191,7 +193,7 @@ class _HomeScreenState extends State<HomeScreen>
                     begin: const Offset(0, 1),
                     end: Offset.zero,
                   ).animate(_animation),
-                  child: Bottombar(type: 1),
+                  child: const Bottombar(type: 1),
                 ),
               ),
             ),
@@ -253,7 +255,7 @@ class _HomeScreenState extends State<HomeScreen>
             // Content
             Consumer<AuthProvider>(builder: (context, authProvider, child) {
               if (authProvider.loading) {
-                return Center(
+                return const Center(
                   child: CircularProgressIndicator(),
                 );
               }
@@ -380,6 +382,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  // trạng thái khi không tìm thấy cây trồng
   Widget _buildEmptyState(double pix) {
     return Center(
       child: Column(
@@ -405,6 +408,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  // card cây trồng
   Widget _buildPlantCard({
     required PlantModel plant,
     required double pix,
@@ -422,7 +426,6 @@ class _HomeScreenState extends State<HomeScreen>
       img = img.substring(17);
       sys = true;
     }
-    print(img);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -558,6 +561,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  // icon của menu
   Widget _buildCircleIconButton({
     required IconData icon,
     required double pix,
@@ -572,7 +576,7 @@ class _HomeScreenState extends State<HomeScreen>
         child: Container(
           height: 40 * pix,
           width: 40 * pix,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             shape: BoxShape.circle,
           ),
           child: Icon(

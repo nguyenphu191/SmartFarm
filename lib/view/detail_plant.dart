@@ -22,10 +22,10 @@ class DetailPlantScreen extends StatefulWidget {
       required this.locationId});
 
   @override
-  _DetailPlantScreenState createState() => _DetailPlantScreenState();
+  DetailPlantScreenState createState() => DetailPlantScreenState();
 }
 
-class _DetailPlantScreenState extends State<DetailPlantScreen> {
+class DetailPlantScreenState extends State<DetailPlantScreen> {
   TextEditingController noteController = TextEditingController();
   TextEditingController yieldController = TextEditingController();
   TextEditingController nameController = TextEditingController();
@@ -33,7 +33,10 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
   XFile? _selectedImage;
   final ImagePicker _picker = ImagePicker();
   String sysImage = "";
-  String _baseUrl = BaseUrl.baseUrl;
+  final _baseUrl = BaseUrl.baseUrl;
+  // Thêm biến để lưu trữ listener
+  late Function() _plantProviderListener;
+  bool _mounted = true;
   // Các loại công việc chăm sóc
   final List<String> careTaskTypes = [
     'Bón phân',
@@ -55,6 +58,19 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
   ];
 
   @override
+  void dispose() {
+    // Gỡ bỏ listener khi widget bị hủy
+    final plantProvider = Provider.of<PlantProvider>(context, listen: false);
+    plantProvider.removeListener(_plantProviderListener);
+    noteController.dispose();
+    yieldController.dispose();
+    nameController.dispose();
+    addressController.dispose();
+    _mounted = false;
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
     _initializeData();
@@ -66,9 +82,9 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
       plantProvider.fetchPlantById(
           widget.seasonId, widget.locationId, widget.plantid);
 
-      // Đợi cho đến khi dữ liệu được tải xong
-      plantProvider.addListener(() {
-        if (!plantProvider.loading && plantProvider.plant != null) {
+      // Định nghĩa listener
+      _plantProviderListener = () {
+        if (!plantProvider.loading && plantProvider.plant != null && _mounted) {
           setState(() {
             // Nếu status từ API là một trong các lựa chọn, sử dụng nó
             final apiStatus = plantProvider.plant?.status ?? '';
@@ -81,7 +97,10 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
             }
           });
         }
-      });
+      };
+
+      // Đăng ký listener
+      plantProvider.addListener(_plantProviderListener);
     });
   }
 
@@ -104,7 +123,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Không thể chọn ảnh: ${e.toString()}'),
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 2),
           backgroundColor: Colors.red,
         ),
       );
@@ -131,7 +150,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Không thể chụp ảnh: ${e.toString()}'),
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 2),
           backgroundColor: Colors.red,
         ),
       );
@@ -156,7 +175,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
@@ -259,7 +278,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
   void _showImageOptions() {
     showModalBottomSheet(
       context: context,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
@@ -330,7 +349,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
         noteController.text.isEmpty &&
         plantStatus == oldplantStatus) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Không có thay đổi nào để cập nhật'),
           duration: Duration(seconds: 2),
           backgroundColor: Colors.red,
@@ -355,7 +374,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
 
     if (result) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Cập nhật thành công'),
           duration: Duration(seconds: 2),
           backgroundColor: Colors.green,
@@ -364,7 +383,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
       reset();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Thêm cây thất bại'),
           duration: Duration(seconds: 2),
           backgroundColor: Colors.red,
@@ -394,7 +413,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned(
+          const Positioned(
             top: 0,
             left: 0,
             right: 0,
@@ -447,7 +466,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
     return Consumer<CarePlanProvider>(
         builder: (context, carePlanProvider, child) {
       if (carePlanProvider.loading) {
-        return Center(
+        return const Center(
           child: CircularProgressIndicator(),
         );
       }
@@ -498,7 +517,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                 height: 1, thickness: 1, color: Colors.grey.withOpacity(0.2)),
             ListView.separated(
               shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               itemCount: carePlanProvider.carePlanList.length,
               separatorBuilder: (context, index) => Divider(
                 height: 1,
@@ -524,7 +543,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                     ),
                   ),
                   trailing: IconButton(
-                    icon: Icon(Icons.delete, color: Colors.red),
+                    icon: const Icon(Icons.delete, color: Colors.red),
                     onPressed: () {},
                   ),
                 );
@@ -542,7 +561,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
 
     return Consumer<PlantProvider>(builder: (context, plantProvider, child) {
       if (plantProvider.loading || plantProvider.plant == null) {
-        return Center(
+        return const Center(
           child: CircularProgressIndicator(),
         );
       }
@@ -696,7 +715,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
             children: [
               TextField(
                 controller: nameController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Tên cây',
                   border: OutlineInputBorder(),
                 ),
@@ -704,7 +723,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
               SizedBox(height: 16 * pix),
               TextField(
                 controller: addressController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Địa chỉ',
                   border: OutlineInputBorder(),
                 ),
@@ -714,7 +733,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Hủy'),
+              child: const Text('Hủy'),
             ),
             ElevatedButton(
               onPressed: () {
@@ -723,7 +742,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
               ),
-              child: Text(
+              child: const Text(
                 'Lưu',
                 style: TextStyle(color: Colors.white),
               ),
@@ -983,10 +1002,10 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ListTile(
-                    title: Text('Ngày thu hoạch'),
+                    title: const Text('Ngày thu hoạch'),
                     subtitle:
                         Text(DateFormat('dd/MM/yyyy').format(harvestDate!)),
-                    trailing: Icon(Icons.calendar_today),
+                    trailing: const Icon(Icons.calendar_today),
                     onTap: () async {
                       final DateTime? picked = await showDatePicker(
                         context: context,
@@ -996,7 +1015,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                         builder: (BuildContext context, Widget? child) {
                           return Theme(
                             data: ThemeData.light().copyWith(
-                              colorScheme: ColorScheme.light(
+                              colorScheme: const ColorScheme.light(
                                 primary: Colors.green,
                                 onPrimary: Colors.white,
                               ),
@@ -1109,7 +1128,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                   onPressed: () {
                     if (yieldController.text.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
+                        const SnackBar(
                           content: Text('Vui lòng nhập sản lượng'),
                           backgroundColor: Colors.red,
                         ),
@@ -1122,7 +1141,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                   ),
-                  child: Text(
+                  child: const Text(
                     'Xác nhận',
                     style: TextStyle(color: Colors.white),
                   ),
@@ -1450,12 +1469,12 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                 children: [
                   Text(
                     'Ngày: ${DateFormat('dd/MM/yyyy').format(pickedDate)}',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     value: selectedTask,
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       labelText: 'Công việc',
                       border: OutlineInputBorder(),
                     ),
@@ -1469,7 +1488,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                               color: _getTaskColor(value),
                               size: 20,
                             ),
-                            SizedBox(width: 8),
+                            const SizedBox(width: 8),
                             Text(value),
                           ],
                         ),
@@ -1496,7 +1515,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                 ),
-                child: Text(
+                child: const Text(
                   'Thêm',
                   style: TextStyle(color: Colors.white),
                 ),
@@ -1643,7 +1662,7 @@ class _DetailPlantScreenState extends State<DetailPlantScreen> {
   void _showDiseaseScanOptions() {
     showModalBottomSheet(
       context: context,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {

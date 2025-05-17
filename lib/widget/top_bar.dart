@@ -23,8 +23,8 @@ class _TopBarState extends State<TopBar> {
         gradient: AppColors.primaryGradient,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
             offset: const Offset(0, 5),
           ),
         ],
